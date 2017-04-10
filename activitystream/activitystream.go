@@ -27,9 +27,9 @@ type Entry struct {
 	Summary   *Text   `xml:"summary"`
 	Content   *Text   `xml:"content"`
 
-	ObjectType ObjectType `xml:"http://activitystrea.ms/spec/1.0 object-type,omitempty"`
-	Verb       Verb       `xml:"http://activitystrea.ms/spec/1.0 verb,omitempty"`
-	Object     *Entry     `xml:"http://activitystrea.ms/spec/1.0 object"`
+	ObjectType ObjectType `xml:"http://activitystrea.ms/spec/1.0/ object-type,omitempty"`
+	Verb       Verb       `xml:"http://activitystrea.ms/spec/1.0/ verb,omitempty"`
+	Object     *Entry     `xml:"http://activitystrea.ms/spec/1.0/ object"`
 
 	InReplyTo *Link `xml:"http://purl.org/syndication/thread/1.0 in-reply-to"`
 }
@@ -54,7 +54,7 @@ type Person struct {
 	Summary string `xml:"summary,omitempty"`
 	Link    []Link `xml:"link"`
 
-	ObjectType ObjectType `xml:"http://activitystrea.ms/spec/1.0 object-type,omitempty"`
+	ObjectType ObjectType `xml:"http://activitystrea.ms/spec/1.0/ object-type,omitempty"`
 }
 
 type Text struct {
