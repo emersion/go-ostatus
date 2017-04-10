@@ -44,6 +44,9 @@ type Link struct {
 	Length   uint   `xml:"length,attr,omitempty"`
 
 	ObjectType ObjectType `xml:"http://ostatus.org/schema/1.0 object-type,omitempty"`
+
+	MediaWidth  uint `xml:"http://purl.org/syndication/atommedia width,omitempty"`
+	MediaHeight uint `xml:"http://purl.org/syndication/atommedia height,omitempty"`
 }
 
 type Person struct {
@@ -55,6 +58,10 @@ type Person struct {
 	Link    []Link `xml:"link"`
 
 	ObjectType ObjectType `xml:"http://activitystrea.ms/spec/1.0/ object-type,omitempty"`
+
+	PreferredUsername string `xml:"http://portablecontacts.net/spec/1.0 preferredUsername,omitempty"`
+	DisplayName       string `xml:"http://portablecontacts.net/spec/1.0 displayName,omitempty"`
+	Note              string `xml:"http://portablecontacts.net/spec/1.0 note,omitempty"`
 }
 
 type Text struct {
