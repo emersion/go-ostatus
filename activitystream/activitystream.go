@@ -1,7 +1,11 @@
+// Package activitystream implements Atom Activity Streams 1.0, as defined in
+// http://activitystrea.ms/specs/atom/1.0/.
 package activitystream
 
 import (
 	"encoding/xml"
+	"io"
+	"net/http"
 	"time"
 )
 
@@ -15,6 +19,39 @@ type Feed struct {
 	Author   *Person  `xml:"author"`
 	Link     []Link   `xml:"link"`
 	Entry    []*Entry `xml:"entry"`
+}
+
+func Read(r io.Reader) (*Feed, error) {
+	feed := new(Feed)
+	err := xml.NewDecoder(r).Decode(feed)
+	return feed, err
+}
+
+type HTTPError struct {
+	Status string
+	StatusCode int
+}
+
+func (err *HTTPError) Error() string {
+	return "activitystream: HTTP request failed"
+}
+
+func Get(url string) (*Feed, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &HTTPError{resp.Status, resp.StatusCode}
+	}
+
+	return Read(resp.Body)
+}
+
+func (feed *Feed) WriteTo(w io.Writer) error {
+	return xml.NewEncoder(w).Encode(feed)
 }
 
 type Entry struct {
