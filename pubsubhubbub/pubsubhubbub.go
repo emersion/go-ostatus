@@ -21,13 +21,13 @@ type HTTPError struct {
 }
 
 func (err *HTTPError) Error() string {
-	return "pubsubhubbub: HTTP request failed"
+	return "pubsubhubbub: HTTP request failed: " + err.Status
 }
 
 type DeniedError string
 
 func (err DeniedError) Error() string {
-	return "pubsubhubbub: subscription denied"
+	return "pubsubhubbub: subscription denied: " + string(err)
 }
 
 func parseEvent(mediaType string, body io.Reader) (topic string, feed *activitystream.Feed, err error) {
@@ -84,7 +84,7 @@ func (s *Subscriber) request(hub string, data url.Values) error {
 	}
 	resp.Body.Close() // We don't need the response body
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusAccepted {
 		return &HTTPError{resp.Status, resp.StatusCode}
 	}
 

@@ -8,4 +8,5 @@ const (
 	LinkSalmon = "salmon"
 	LinkMagicPublicKey = "magic-public-key"
 	LinkSubscribe = "http://ostatus.org/schema/1.0/subscribe"
+	LinkHub = "hub"
 )
