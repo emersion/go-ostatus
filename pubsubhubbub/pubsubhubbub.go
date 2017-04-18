@@ -59,25 +59,19 @@ func parseEvent(mediaType string, body io.Reader) (topic string, feed *activitys
 type subscription struct {
 	lease time.Time
 	notifies chan<- *activitystream.Feed
-	done chan<- error
-	unsubscribes chan<- error
+	subscribes chan error
+	unsubscribes chan error
 }
 
 type Subscriber struct {
-	s *http.Server
 	c *http.Client
 	callbackURL string
 	subscriptions map[string]*subscription
 }
 
-func NewSubscriber(s *http.Server, c *http.Client, callbackURL string) *Subscriber {
-	if c == nil {
-		c = new(http.Client)
-	}
-
+func NewSubscriber(callbackURL string) *Subscriber {
 	return &Subscriber{
-		c: c,
-		s: s,
+		c: new(http.Client),
 		callbackURL: callbackURL,
 		subscriptions: make(map[string]*subscription),
 	}
@@ -99,7 +93,7 @@ func (s *Subscriber) request(hub string, data url.Values) error {
 
 func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystream.Feed) error {
 	if _, ok := s.subscriptions[topic]; ok {
-		// TODO: renew
+		return errors.New("pubsubhubbub: already subscribed")
 	}
 
 	data := make(url.Values)
@@ -111,13 +105,13 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 		return err
 	}
 
-	done := make(chan error, 1)
 	sub := &subscription{
 		notifies: notifies,
-		done: done,
+		subscribes: make(chan error, 1),
+		unsubscribes: make(chan error, 1),
 	}
 	s.subscriptions[topic] = sub
-	return <-done
+	return <-sub.subscribes
 }
 
 func (s *Subscriber) Unsubscribe(hub, topic string) error {
@@ -134,9 +128,7 @@ func (s *Subscriber) Unsubscribe(hub, topic string) error {
 		return err
 	}
 
-	done := make(chan error, 1)
-	sub.unsubscribes = done
-	return <-done
+	return <-sub.unsubscribes
 }
 
 func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
@@ -158,7 +150,8 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			log.Printf("pubsubhubbub: publisher denied request for topic %q (reason: %v)\n", topic, reason)
 			delete(s.subscriptions, topic)
 			close(sub.notifies)
-			sub.done <- DeniedError(reason)
+			sub.subscribes <- DeniedError(reason)
+			close(sub.subscribes)
 			return
 		case "subscribe":
 			log.Printf("pubsubhubbub: publisher accepted subscription for topic %q\n", topic)
@@ -168,12 +161,12 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 				return
 			}
 			sub.lease = time.Now().Add(time.Duration(lease) * time.Second)
-			sub.done <- nil
-			close(sub.done)
+			close(sub.subscribes)
 		case "unsubscribe":
 			log.Printf("pubsubhubbub: publisher accepted unsubscription for topic %q\n", topic)
 			delete(s.subscriptions, topic)
 			close(sub.notifies)
+			close(sub.unsubscribes)
 		default:
 			http.Error(resp, "Bad Request", http.StatusBadRequest)
 			return
@@ -203,7 +196,6 @@ type Backend interface {
 
 type Publisher struct {
 	c *http.Client
-	s *http.Server
 }
 
 func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
