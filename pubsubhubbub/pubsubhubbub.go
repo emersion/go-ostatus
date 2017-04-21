@@ -203,7 +203,7 @@ type pubSubscription struct {
 	callbacks map[string]time.Time
 }
 
-func (s *pubSubscription) receive() error {
+func (s *pubSubscription) receive(c *http.Client) error {
 	// TODO: cancel subscription if lease expires
 
 	for notif := range s.notifies {
@@ -214,7 +214,7 @@ func (s *pubSubscription) receive() error {
 
 		for callback, _ := range s.callbacks {
 			r := bytes.NewReader(b.Bytes())
-			resp, err := http.Post(callback, "application/atom+xml", r)
+			resp, err := c.Post(callback, "application/atom+xml", r)
 			if err != nil {
 				// TODO: retry
 				log.Println("pubsubhubbub: failed to push notification:", err)
@@ -237,6 +237,14 @@ type Publisher struct {
 	be Backend
 	c *http.Client
 	subscriptions map[string]*pubSubscription
+}
+
+func NewPublisher(be Backend) *Publisher {
+	return &Publisher{
+		be: be,
+		c: new(http.Client),
+		subscriptions: make(map[string]*pubSubscription),
+	}
 }
 
 func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
@@ -273,7 +281,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 				}
 
 				s = &pubSubscription{notifies: notifies}
-				go s.receive()
+				go s.receive(p.c)
 
 				p.subscriptions[topic] = s
 			}
@@ -303,7 +311,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 		u.RawQuery = q.Encode()
 
-		resp, err := http.Get(u.String())
+		resp, err := p.c.Get(u.String())
 		if err != nil {
 			return
 		}
