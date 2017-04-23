@@ -102,7 +102,10 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 					}
 				}
 
-				s = &pubSubscription{notifies: notifies}
+				s = &pubSubscription{
+					notifies: notifies,
+					callbacks: make(map[string]time.Time),
+				}
 				go s.receive(p.c)
 
 				p.subscriptions[topic] = s
@@ -133,15 +136,26 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 		u.RawQuery = q.Encode()
 
-		resp, err := p.c.Get(u.String())
+		subResp, err := p.c.Get(u.String())
 		if err != nil {
+			log.Println("pubsubhubbub: cannot send HTTP request:", err)
+			http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if subResp.StatusCode/100 != 2 {
+			log.Println("pubsubhubbub: HTTP request error:", subResp.Status)
+			http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
 		buf := make([]byte, len(challenge))
-		if _, err := io.ReadFull(resp.Body, buf); err != nil {
+		if _, err := io.ReadFull(subResp.Body, buf); err != nil {
+			log.Println("pubsubhubbub: cannot read HTTP response:", err)
+			http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
 			return
 		} else if !bytes.Equal(buf, []byte(challenge)) {
+			log.Println("pubsubhubbub: invalid challenge")
+			http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -151,5 +165,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		case "unsubscribe":
 			delete(s.callbacks, callback)
 		}
+
+		resp.WriteHeader(http.StatusAccepted)
 	}
 }

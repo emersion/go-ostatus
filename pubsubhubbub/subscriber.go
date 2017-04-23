@@ -94,6 +94,13 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 		return errors.New("pubsubhubbub: already subscribed")
 	}
 
+	sub := &subscription{
+		notifies: notifies,
+		subscribes: make(chan error, 1),
+		unsubscribes: make(chan error, 1),
+	}
+	s.subscriptions[topic] = sub
+
 	data := make(url.Values)
 	data.Set("hub.callback", s.callbackURL)
 	data.Set("hub.mode", "subscribe")
@@ -103,12 +110,6 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 		return err
 	}
 
-	sub := &subscription{
-		notifies: notifies,
-		subscribes: make(chan error, 1),
-		unsubscribes: make(chan error, 1),
-	}
-	s.subscriptions[topic] = sub
 	return <-sub.subscribes
 }
 
