@@ -3,6 +3,7 @@ package xrd
 import (
 	"errors"
 	"encoding/json"
+	"encoding/xml"
 	"net/http"
 )
 
@@ -30,9 +31,16 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// TODO: parse Accept header field
-	resp.Header().Set("Content-Type", "application/jrd+json")
-	if err := json.NewEncoder(resp).Encode(resource); err != nil {
+	// TODO: properly parse Accept header
+	switch req.Header.Get("Accept") {
+	case "application/jrd+json", "application/json":
+		resp.Header().Set("Content-Type", "application/jrd+json")
+		err = json.NewEncoder(resp).Encode(resource)
+	default:
+		resp.Header().Set("Content-Type", "application/xrd+xml")
+		err = xml.NewEncoder(resp).Encode(resource)
+	}
+	if err != nil {
 		panic(err)
 	}
 }
