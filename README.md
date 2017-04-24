@@ -12,6 +12,7 @@ The protocol suite includes:
 * [Web Host Metadata](https://tools.ietf.org/html/rfc6415)
 * [WebFinger](https://tools.ietf.org/html/rfc7033)
 * [LRDD](https://tools.ietf.org/html/draft-hammer-discovery-06)
+* [Web Linking](https://tools.ietf.org/html/rfc5988)
 
 ## License
 
