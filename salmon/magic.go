@@ -3,8 +3,10 @@ package salmon
 import (
 	"crypto"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"io"
 	"math/big"
 	"strings"
 )
@@ -14,6 +16,7 @@ var enc = base64.URLEncoding
 var (
 	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")
 	errMalformedPublicKey   = errors.New("salmon: malformed public key")
+	errUnknownAlg           = errors.New("salmon: unknown signature algorithm")
 )
 
 func FormatPublicKey(pk crypto.PublicKey) (string, error) {
@@ -59,4 +62,38 @@ func PublicKeyDataURL(pk crypto.PublicKey) (string, error) {
 		return "", err
 	}
 	return "data:application/magic-public-key," + s, nil
+}
+
+func PublicKeyID(pk crypto.PublicKey) (string, error) {
+	s, err := FormatPublicKey(pk)
+	if err != nil {
+		return "", err
+	}
+
+	h := sha256.New()
+	io.WriteString(h, s)
+	id := base64.URLEncoding.EncodeToString(h.Sum(nil))
+	return id, nil
+}
+
+func verify(env *MagicEnv, pk crypto.PublicKey, sig string) error {
+	sigb, err := base64.URLEncoding.DecodeString(sig)
+	if err != nil {
+		return err
+	}
+
+	mediaType := base64.URLEncoding.EncodeToString([]byte(env.Data.Type))
+	encoding := base64.URLEncoding.EncodeToString([]byte(env.Encoding))
+	alg := base64.URLEncoding.EncodeToString([]byte(env.Alg))
+
+	h := sha256.New()
+	io.WriteString(h, env.Data.Value+"."+mediaType+"."+encoding+"."+alg)
+	hashed := h.Sum(nil)
+
+	switch alg {
+	case "RSA-SHA256":
+		pk := pk.(*rsa.PublicKey) // TODO: panics
+		return rsa.VerifyPKCS1v15(pk, crypto.SHA256, hashed, sigb)
+	}
+	return errUnknownAlg
 }

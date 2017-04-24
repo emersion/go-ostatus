@@ -3,7 +3,10 @@
 package salmon
 
 import (
+	"crypto"
+	"encoding/base64"
 	"encoding/xml"
+	"errors"
 )
 
 // TODO: JSON schema
@@ -14,6 +17,28 @@ type MagicEnv struct {
 	Encoding string      `xml:"encoding" json:"encoding"`
 	Alg      string      `xml:"alg" json:"alg"`
 	Sig      []*MagicSig `xml:"sig" json:"sigs"`
+}
+
+func (env *MagicEnv) UnverifiedData() ([]byte, error) {
+	switch env.Encoding {
+	case "base64url":
+		return base64.URLEncoding.DecodeString(env.Data.Value)
+	default:
+		return nil, errors.New("salmon: unknown envelope encoding")
+	}
+}
+
+func (env *MagicEnv) Verify(pk crypto.PublicKey) ([]byte, error) {
+	if len(env.Sig) == 0 {
+		return nil, errors.New("salmon: no signature in envelope")
+	}
+
+	// TODO: check each available signature
+	if err := verify(env, pk, env.Sig[0].Value); err != nil {
+		return nil, err
+	}
+
+	return env.UnverifiedData()
 }
 
 type MagicData struct {
