@@ -39,7 +39,8 @@ func NewHandler(be Backend, rootURL string) http.Handler {
 
 		resp.Header().Set("Content-Type", "application/atom+xml")
 		if err := feed.WriteTo(resp); err != nil {
-			panic(err)
+			http.Error(resp, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	})
 

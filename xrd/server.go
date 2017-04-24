@@ -41,7 +41,8 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		err = xml.NewEncoder(resp).Encode(resource)
 	}
 	if err != nil {
-		panic(err)
+		http.Error(resp, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 

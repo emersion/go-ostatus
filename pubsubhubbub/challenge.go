@@ -15,10 +15,6 @@ func randomString(n int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func generateChallenge() string {
-	challenge, err := randomString(32)
-	if err != nil {
-		panic(err)
-	}
-	return challenge
+func generateChallenge() (string, error) {
+	return randomString(32)
 }

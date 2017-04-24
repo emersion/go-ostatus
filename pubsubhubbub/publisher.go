@@ -121,7 +121,11 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 
 		// Verify
-		challenge := generateChallenge()
+		challenge, err := generateChallenge()
+		if err != nil {
+			http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		u, err := url.ParseRequestURI(callback)
 		if err != nil {
 			http.Error(resp, "Bad Request", http.StatusBadRequest)
