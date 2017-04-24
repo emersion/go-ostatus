@@ -3,7 +3,9 @@ package ostatus
 import (
 	"net/http"
 
-	"github.com/emersion/go-webfinger"
+	"github.com/emersion/go-ostatus/xrd"
+	"github.com/emersion/go-ostatus/xrd/hostmeta"
+	"github.com/emersion/go-ostatus/xrd/webfinger"
 	"github.com/emersion/go-ostatus/pubsubhubbub"
 )
 
@@ -14,10 +16,17 @@ type handler struct {
 	be Backend
 }
 
-func NewHandler(be Backend) http.Handler {
+func NewHandler(be Backend, rootURL string) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle(webfinger.Path, webfinger.NewHandler(be))
+	hostmetaResource := &xrd.Resource{
+		Links: []*xrd.Link{
+			{Rel: "lrdd", Type: "application/jrd+json", Template: rootURL+webfinger.WellKnownPathTemplate},
+		},
+	}
+
+	mux.Handle(hostmeta.WellKnownPath, hostmeta.NewHandler(hostmetaResource))
+	mux.Handle(webfinger.WellKnownPath, webfinger.NewHandler(be))
 	mux.Handle(HubPath, pubsubhubbub.NewPublisher(be))
 
 	mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {

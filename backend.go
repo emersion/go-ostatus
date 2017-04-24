@@ -1,7 +1,7 @@
 package ostatus
 
 import (
-	"github.com/emersion/go-webfinger"
+	"github.com/emersion/go-ostatus/xrd/webfinger"
 	"github.com/emersion/go-ostatus/activitystream"
 	"github.com/emersion/go-ostatus/pubsubhubbub"
 )
