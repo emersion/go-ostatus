@@ -8,7 +8,7 @@ import (
 
 type Resource struct {
 	XMLName  xml.Name `xml:"http://docs.oasis-open.org/ns/xri/xrd-1.0 XRD" json:"-"`
-	Subject string `xml:"Subject" json:"subject"`
+	Subject string `xml:"Subject" json:"subject,omitempty"`
 	Aliases []string `xml:"Alias" json:"aliases,omitempty"`
 	Properties map[string]string `xml:"-" json:"properties,omitempty"`
 	Links []*Link `xml:"Link" json:"links,omitempty"`
