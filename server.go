@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	HubPath = "/hub"
+	HubPath    = "/hub"
 	SalmonPath = "/salmon"
 )
 

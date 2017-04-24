@@ -6,7 +6,7 @@ import (
 
 type Backend interface{}
 
-type handler struct{
+type handler struct {
 	be Backend
 }
 

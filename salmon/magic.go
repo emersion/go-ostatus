@@ -13,7 +13,7 @@ var enc = base64.URLEncoding
 
 var (
 	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")
-	errMalformedPublicKey = errors.New("salmon: malformed public key")
+	errMalformedPublicKey   = errors.New("salmon: malformed public key")
 )
 
 func FormatPublicKey(pk crypto.PublicKey) (string, error) {
@@ -21,7 +21,7 @@ func FormatPublicKey(pk crypto.PublicKey) (string, error) {
 	case *rsa.PublicKey:
 		n := enc.EncodeToString(pk.N.Bytes())
 		e := enc.EncodeToString(big.NewInt(int64(pk.E)).Bytes())
-		return "RSA."+n+"."+e, nil
+		return "RSA." + n + "." + e, nil
 	default:
 		return "", errUnknownPublicKeyType
 	}
@@ -58,5 +58,5 @@ func PublicKeyDataURL(pk crypto.PublicKey) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "data:application/magic-public-key,"+s, nil
+	return "data:application/magic-public-key," + s, nil
 }
