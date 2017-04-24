@@ -146,6 +146,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+		defer subResp.Body.Close()
 		if subResp.StatusCode/100 != 2 {
 			log.Println("pubsubhubbub: HTTP request error:", subResp.Status)
 			http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
