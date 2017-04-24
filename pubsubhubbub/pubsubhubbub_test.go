@@ -37,7 +37,7 @@ func (be *dummyBackend) Unsubscribe(notifies chan<- *activitystream.Feed) error 
 	return nil
 }
 
-type emptyReadCloser struct {}
+type emptyReadCloser struct{}
 
 func (r *emptyReadCloser) Read(b []byte) (int, error) {
 	return 0, io.EOF
@@ -69,7 +69,7 @@ func Test(t *testing.T) {
 
 	be := newDummyBackend()
 	pub := NewPublisher(be)
-	sub := NewSubscriber(subscriberURL+"/webhook")
+	sub := NewSubscriber(subscriberURL + "/webhook")
 	pub.c.Transport = &roundTripper{sub}
 	sub.c.Transport = &roundTripper{pub}
 
@@ -80,31 +80,31 @@ func Test(t *testing.T) {
 
 	updated := time.Now()
 	sent := &activitystream.Feed{
-		ID: topicURL,
-		Title: "Test notification",
+		ID:       topicURL,
+		Title:    "Test notification",
 		Subtitle: "This is just a little test.",
-		Updated: activitystream.NewTime(updated),
+		Updated:  activitystream.NewTime(updated),
 		Link: []activitystream.Link{
 			{Rel: "self", Type: "application/atom+xml", Href: topicURL},
 			{Rel: "hub", Href: hubURL},
 		},
 		Author: &activitystream.Person{
-			ID: topicURL,
-			Name: "Test subject #42",
+			ID:         topicURL,
+			Name:       "Test subject #42",
 			ObjectType: activitystream.ObjectPerson,
 		},
 		Entry: []*activitystream.Entry{
 			{
-				ID: "tag:localhost,2017-04-23:objectId=3865264:objectType=Status",
-				Title: "My first post ever",
+				ID:        "tag:localhost,2017-04-23:objectId=3865264:objectType=Status",
+				Title:     "My first post ever",
 				Published: activitystream.NewTime(updated),
-				Updated: activitystream.NewTime(updated),
+				Updated:   activitystream.NewTime(updated),
 				Content: &activitystream.Text{
 					Type: "text/html",
 					Body: "Hello World!",
 				},
 				ObjectType: activitystream.ObjectNote,
-				Verb: activitystream.VerbPost,
+				Verb:       activitystream.VerbPost,
 			},
 		},
 	}

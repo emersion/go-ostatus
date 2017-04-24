@@ -1,9 +1,9 @@
 package xrd
 
 import (
-	"errors"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"net/http"
 )
 

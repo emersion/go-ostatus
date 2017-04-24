@@ -21,7 +21,7 @@ type Backend interface {
 }
 
 type pubSubscription struct {
-	notifies <-chan *activitystream.Feed
+	notifies  <-chan *activitystream.Feed
 	callbacks map[string]time.Time
 }
 
@@ -56,15 +56,15 @@ func (s *pubSubscription) receive(c *http.Client) error {
 }
 
 type Publisher struct {
-	be Backend
-	c *http.Client
+	be            Backend
+	c             *http.Client
 	subscriptions map[string]*pubSubscription
 }
 
 func NewPublisher(be Backend) *Publisher {
 	return &Publisher{
-		be: be,
-		c: new(http.Client),
+		be:            be,
+		c:             new(http.Client),
 		subscriptions: make(map[string]*pubSubscription),
 	}
 }
@@ -103,7 +103,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 				}
 
 				s = &pubSubscription{
-					notifies: notifies,
+					notifies:  notifies,
 					callbacks: make(map[string]time.Time),
 				}
 				go s.receive(p.c)

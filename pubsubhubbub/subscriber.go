@@ -14,7 +14,7 @@ import (
 )
 
 type HTTPError struct {
-	Status string
+	Status     string
 	StatusCode int
 }
 
@@ -55,22 +55,22 @@ func parseEvent(mediaType string, body io.Reader) (topic string, feed *activitys
 }
 
 type subscription struct {
-	lease time.Time
-	notifies chan<- *activitystream.Feed
-	subscribes chan error
+	lease        time.Time
+	notifies     chan<- *activitystream.Feed
+	subscribes   chan error
 	unsubscribes chan error
 }
 
 type Subscriber struct {
-	c *http.Client
-	callbackURL string
+	c             *http.Client
+	callbackURL   string
 	subscriptions map[string]*subscription
 }
 
 func NewSubscriber(callbackURL string) *Subscriber {
 	return &Subscriber{
-		c: new(http.Client),
-		callbackURL: callbackURL,
+		c:             new(http.Client),
+		callbackURL:   callbackURL,
 		subscriptions: make(map[string]*subscription),
 	}
 }
@@ -95,8 +95,8 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 	}
 
 	sub := &subscription{
-		notifies: notifies,
-		subscribes: make(chan error, 1),
+		notifies:     notifies,
+		subscribes:   make(chan error, 1),
 		unsubscribes: make(chan error, 1),
 	}
 	s.subscriptions[topic] = sub
