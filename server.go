@@ -4,12 +4,16 @@ import (
 	"net/http"
 
 	"github.com/emersion/go-ostatus/pubsubhubbub"
+	"github.com/emersion/go-ostatus/salmon"
 	"github.com/emersion/go-ostatus/xrd"
 	"github.com/emersion/go-ostatus/xrd/hostmeta"
 	"github.com/emersion/go-ostatus/xrd/webfinger"
 )
 
-var HubPath = "/hub"
+var (
+	HubPath = "/hub"
+	SalmonPath = "/salmon"
+)
 
 type handler struct {
 	http.Handler
@@ -28,6 +32,7 @@ func NewHandler(be Backend, rootURL string) http.Handler {
 	mux.Handle(hostmeta.WellKnownPath, hostmeta.NewHandler(hostmetaResource))
 	mux.Handle(webfinger.WellKnownPath, webfinger.NewHandler(be))
 	mux.Handle(HubPath, pubsubhubbub.NewPublisher(be))
+	mux.Handle(SalmonPath, salmon.NewHandler(be))
 
 	mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
 		topic := req.URL.String()
