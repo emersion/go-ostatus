@@ -3,7 +3,7 @@
 package webfinger
 
 const (
-	WellKnownName = "webfinger"
-	WellKnownPath = "/.well-known/webfinger"
+	WellKnownName         = "webfinger"
+	WellKnownPath         = "/.well-known/webfinger"
 	WellKnownPathTemplate = "/.well-known/webfinger?resource={uri}"
 )

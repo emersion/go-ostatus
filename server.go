@@ -3,10 +3,10 @@ package ostatus
 import (
 	"net/http"
 
+	"github.com/emersion/go-ostatus/pubsubhubbub"
 	"github.com/emersion/go-ostatus/xrd"
 	"github.com/emersion/go-ostatus/xrd/hostmeta"
 	"github.com/emersion/go-ostatus/xrd/webfinger"
-	"github.com/emersion/go-ostatus/pubsubhubbub"
 )
 
 var HubPath = "/hub"
@@ -21,7 +21,7 @@ func NewHandler(be Backend, rootURL string) http.Handler {
 
 	hostmetaResource := &xrd.Resource{
 		Links: []*xrd.Link{
-			{Rel: "lrdd", Type: "application/jrd+json", Template: rootURL+webfinger.WellKnownPathTemplate},
+			{Rel: "lrdd", Type: "application/jrd+json", Template: rootURL + webfinger.WellKnownPathTemplate},
 		},
 	}
 
@@ -46,6 +46,6 @@ func NewHandler(be Backend, rootURL string) http.Handler {
 
 	return &handler{
 		Handler: mux,
-		be: be,
+		be:      be,
 	}
 }

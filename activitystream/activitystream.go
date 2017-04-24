@@ -28,7 +28,7 @@ func Read(r io.Reader) (*Feed, error) {
 }
 
 type HTTPError struct {
-	Status string
+	Status     string
 	StatusCode int
 }
 
