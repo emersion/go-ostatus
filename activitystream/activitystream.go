@@ -51,6 +51,9 @@ func Get(url string) (*Feed, error) {
 }
 
 func (feed *Feed) WriteTo(w io.Writer) error {
+	if _, err := io.WriteString(w, xml.Header); err != nil {
+		return err
+	}
 	return xml.NewEncoder(w).Encode(feed)
 }
 

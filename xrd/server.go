@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"io"
 	"net/http"
 )
 
@@ -38,6 +39,9 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		err = json.NewEncoder(resp).Encode(resource)
 	default:
 		resp.Header().Set("Content-Type", "application/xrd+xml")
+		if _, err = io.WriteString(resp, xml.Header); err != nil {
+			break
+		}
 		err = xml.NewEncoder(resp).Encode(resource)
 	}
 	if err != nil {
