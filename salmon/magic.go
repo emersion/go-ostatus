@@ -11,19 +11,30 @@ import (
 	"strings"
 )
 
-var enc = base64.RawURLEncoding
-
 var (
 	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")
 	errMalformedPublicKey   = errors.New("salmon: malformed public key")
 	errUnknownAlg           = errors.New("salmon: unknown signature algorithm")
 )
 
+func decodeString(s string) ([]byte, error) {
+	// The spec says to use URL encoding without padding, but some implementations
+	// add padding (e.g. Mastodon).
+	if b, err := base64.RawURLEncoding.DecodeString(s); err == nil {
+		return b, nil
+	}
+	return base64.URLEncoding.DecodeString(s)
+}
+
+func encodeToString(b []byte) string {
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
 func FormatPublicKey(pk crypto.PublicKey) (string, error) {
 	switch pk := pk.(type) {
 	case *rsa.PublicKey:
-		n := enc.EncodeToString(pk.N.Bytes())
-		e := enc.EncodeToString(big.NewInt(int64(pk.E)).Bytes())
+		n := encodeToString(pk.N.Bytes())
+		e := encodeToString(big.NewInt(int64(pk.E)).Bytes())
 		return "RSA." + n + "." + e, nil
 	default:
 		return "", errUnknownPublicKeyType
@@ -38,11 +49,11 @@ func ParsePublicKey(s string) (crypto.PublicKey, error) {
 			return nil, errMalformedPublicKey
 		}
 
-		n, err := enc.DecodeString(parts[1])
+		n, err := decodeString(parts[1])
 		if err != nil {
 			return nil, err
 		}
-		e, err := enc.DecodeString(parts[2])
+		e, err := decodeString(parts[2])
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +83,7 @@ func PublicKeyID(pk crypto.PublicKey) (string, error) {
 
 	h := sha256.New()
 	io.WriteString(h, s)
-	id := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	id := encodeToString(h.Sum(nil))
 	return id, nil
 }
 
@@ -82,9 +93,9 @@ func verify(env *MagicEnv, pk crypto.PublicKey, sig string) error {
 		return err
 	}
 
-	mediaType := base64.RawURLEncoding.EncodeToString([]byte(env.Data.Type))
-	encoding := base64.RawURLEncoding.EncodeToString([]byte(env.Encoding))
-	alg := base64.RawURLEncoding.EncodeToString([]byte(env.Alg))
+	mediaType := encodeToString([]byte(env.Data.Type))
+	encoding := encodeToString([]byte(env.Encoding))
+	alg := encodeToString([]byte(env.Alg))
 
 	h := sha256.New()
 	io.WriteString(h, env.Data.Value+"."+mediaType+"."+encoding+"."+alg)
