@@ -14,6 +14,7 @@ The protocol suite includes:
 * [WebFinger](https://tools.ietf.org/html/rfc7033)
 * [LRDD](https://tools.ietf.org/html/draft-hammer-discovery-06)
 * [Web Linking](https://tools.ietf.org/html/rfc5988)
+* [Salmon](http://www.salmon-protocol.org/salmon-protocol-summary)
 
 ## License
 
