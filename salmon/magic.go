@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var enc = base64.URLEncoding
+var enc = base64.RawURLEncoding
 
 var (
 	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")
@@ -72,19 +72,19 @@ func PublicKeyID(pk crypto.PublicKey) (string, error) {
 
 	h := sha256.New()
 	io.WriteString(h, s)
-	id := base64.URLEncoding.EncodeToString(h.Sum(nil))
+	id := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 	return id, nil
 }
 
 func verify(env *MagicEnv, pk crypto.PublicKey, sig string) error {
-	sigb, err := base64.URLEncoding.DecodeString(sig)
+	sigb, err := base64.RawURLEncoding.DecodeString(sig)
 	if err != nil {
 		return err
 	}
 
-	mediaType := base64.URLEncoding.EncodeToString([]byte(env.Data.Type))
-	encoding := base64.URLEncoding.EncodeToString([]byte(env.Encoding))
-	alg := base64.URLEncoding.EncodeToString([]byte(env.Alg))
+	mediaType := base64.RawURLEncoding.EncodeToString([]byte(env.Data.Type))
+	encoding := base64.RawURLEncoding.EncodeToString([]byte(env.Encoding))
+	alg := base64.RawURLEncoding.EncodeToString([]byte(env.Alg))
 
 	h := sha256.New()
 	io.WriteString(h, env.Data.Value+"."+mediaType+"."+encoding+"."+alg)

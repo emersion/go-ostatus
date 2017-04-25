@@ -22,7 +22,7 @@ type MagicEnv struct {
 func (env *MagicEnv) UnverifiedData() ([]byte, error) {
 	switch env.Encoding {
 	case "base64url":
-		return base64.URLEncoding.DecodeString(env.Data.Value)
+		return base64.RawURLEncoding.DecodeString(env.Data.Value)
 	default:
 		return nil, errors.New("salmon: unknown envelope encoding")
 	}
