@@ -124,15 +124,31 @@ func (t Time) Time() (time.Time, error) {
 type ObjectType string
 
 const (
-	ObjectPerson     ObjectType = "http://activitystrea.ms/schema/1.0/person"
+	ObjectActivity   ObjectType = "http://activitystrea.ms/schema/1.0/activity"
 	ObjectNote                  = "http://activitystrea.ms/schema/1.0/note"
 	ObjectComment               = "http://activitystrea.ms/schema/1.0/comment"
+	ObjectPerson                = "http://activitystrea.ms/schema/1.0/person"
 	ObjectCollection            = "http://activitystrea.ms/schema/1.0/collection"
+	ObjectGroup                 = "http://activitystrea.ms/schema/1.0/group"
 )
 
 type Verb string
 
 const (
-	VerbPost  Verb = "http://activitystrea.ms/schema/1.0/post"
-	VerbShare      = "http://activitystrea.ms/schema/1.0/share"
+	VerbPost          Verb = "http://activitystrea.ms/schema/1.0/post"
+	VerbShare              = "http://activitystrea.ms/schema/1.0/share"
+	VerbFavorite           = "http://activitystrea.ms/schema/1.0/favorite"
+	VerbUnfavorite         = "http://activitystrea.ms/schema/1.0/unfavorite"
+	VerbDelete             = "http://activitystrea.ms/schema/1.0/delete"
+	VerbFollow             = "http://activitystrea.ms/schema/1.0/follow"
+	VerbRequestFriend      = "http://activitystrea.ms/schema/1.0/request-friend"
+	VerbAuthorize          = "http://activitystrea.ms/schema/1.0/authorize"
+	VerbReject             = "http://activitystrea.ms/schema/1.0/reject"
+	VerbUnfollow           = "http://ostatus.org/schema/1.0/unfollow"
+	VerbBlock              = "http://mastodon.social/schema/1.0/block"
+	VerbUnblock            = "http://mastodon.social/schema/1.0/unblock"
+)
+
+const (
+	CollectionPublic = "http://activityschema.org/collection/public"
 )
