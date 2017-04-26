@@ -9,7 +9,7 @@ import (
 )
 
 type Backend interface {
-	Reply(*activitystream.Entry) error
+	Notify(*activitystream.Entry) error
 }
 
 type handler struct {
@@ -57,7 +57,7 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := h.be.Reply(entry); err != nil {
+	if err := h.be.Notify(entry); err != nil {
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
