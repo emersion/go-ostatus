@@ -83,10 +83,10 @@ type Link struct {
 	Title    string `xml:"title,attr,omitempty"`
 	Length   uint   `xml:"length,attr,omitempty"`
 
-	ObjectType ObjectType `xml:"http://ostatus.org/schema/1.0 object-type,omitempty"`
+	ObjectType ObjectType `xml:"http://ostatus.org/schema/1.0 object-type,attr,omitempty"`
 
-	MediaWidth  uint `xml:"http://purl.org/syndication/atommedia width,omitempty"`
-	MediaHeight uint `xml:"http://purl.org/syndication/atommedia height,omitempty"`
+	MediaWidth  uint `xml:"http://purl.org/syndication/atommedia width,attr,omitempty"`
+	MediaHeight uint `xml:"http://purl.org/syndication/atommedia height,attr,omitempty"`
 }
 
 type Person struct {
