@@ -56,6 +56,7 @@ func parseEvent(mediaType string, body io.Reader) (topic string, feed *activitys
 
 type subscription struct {
 	lease        time.Time
+	secret       string
 	notifies     chan<- *activitystream.Feed
 	subscribes   chan error
 	unsubscribes chan error
@@ -94,8 +95,14 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 		return errors.New("pubsubhubbub: already subscribed")
 	}
 
+	secret, err := generateChallenge()
+	if err != nil {
+		return err
+	}
+
 	sub := &subscription{
 		notifies:     notifies,
+		secret:       secret,
 		subscribes:   make(chan error, 1),
 		unsubscribes: make(chan error, 1),
 	}
@@ -105,7 +112,8 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 	data.Set("hub.callback", s.callbackURL)
 	data.Set("hub.mode", "subscribe")
 	data.Set("hub.topic", topic)
-	// hub.lease_seconds, hub.secret
+	data.Set("hub.secret", secret)
+	// hub.lease_seconds
 	if err := s.request(hub, data); err != nil {
 		return err
 	}
@@ -173,6 +181,8 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 
 		resp.Write([]byte(query.Get("hub.challenge")))
 	} else {
+		// TODO: check HMAC signature
+
 		topic, notifs, err := parseEvent(req.Header.Get("Content-Type"), req.Body)
 		if err != nil {
 			http.Error(resp, "Bad Request", http.StatusBadRequest)
