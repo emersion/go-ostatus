@@ -113,7 +113,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	u, err := url.ParseRequestURI(callbackURL)
+	u, err := url.Parse(callbackURL)
 	if err != nil {
 		http.Error(resp, "Invalid callback URL", http.StatusBadRequest)
 		return
@@ -207,7 +207,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch mode {
 	case "subscribe":
 		s.callbacks[callbackURL] = &pubCallback{
-			lease: lease,
+			lease:  lease,
 			secret: secret,
 		}
 	case "unsubscribe":

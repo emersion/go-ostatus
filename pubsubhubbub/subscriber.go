@@ -1,11 +1,17 @@
 package pubsubhubbub
 
 import (
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
+	"hash"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/emersion/go-ostatus/activitystream"
@@ -55,6 +61,7 @@ func parseEvent(mediaType string, body io.Reader) (topic string, feed *activitys
 }
 
 type subscription struct {
+	callbackURL  string
 	lease        time.Time
 	secret       string
 	notifies     chan<- *activitystream.Feed
@@ -100,7 +107,17 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 		return err
 	}
 
+	u, err := url.Parse(s.callbackURL)
+	if err != nil {
+		return err
+	}
+	q := u.Query()
+	q.Set("topic", topic)
+	u.RawQuery = q.Encode()
+	callbackURL := u.String()
+
 	sub := &subscription{
+		callbackURL:  callbackURL,
 		notifies:     notifies,
 		secret:       secret,
 		subscribes:   make(chan error, 1),
@@ -109,7 +126,7 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 	s.subscriptions[topic] = sub
 
 	data := make(url.Values)
-	data.Set("hub.callback", s.callbackURL)
+	data.Set("hub.callback", callbackURL)
 	data.Set("hub.mode", "subscribe")
 	data.Set("hub.topic", topic)
 	data.Set("hub.secret", secret)
@@ -128,7 +145,7 @@ func (s *Subscriber) Unsubscribe(hub, topic string) error {
 	}
 
 	data := make(url.Values)
-	data.Set("hub.callback", s.callbackURL)
+	data.Set("hub.callback", sub.callbackURL)
 	data.Set("hub.mode", "unsubscribe")
 	data.Set("hub.topic", topic)
 	if err := s.request(hub, data); err != nil {
@@ -181,18 +198,44 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 
 		resp.Write([]byte(query.Get("hub.challenge")))
 	} else {
-		// TODO: check HMAC signature
-
-		topic, notifs, err := parseEvent(req.Header.Get("Content-Type"), req.Body)
-		if err != nil {
-			http.Error(resp, "Bad Request", http.StatusBadRequest)
-			return
-		}
+		topic := query.Get("topic")
 
 		sub, ok := s.subscriptions[topic]
 		if !ok {
-			http.Error(resp, "Not Found", http.StatusNotFound)
+			http.Error(resp, "Invalid topic", http.StatusNotFound)
 			return
+		}
+
+		var r io.Reader = req.Body
+		var h hash.Hash
+		if sub.secret != "" {
+			h = hmac.New(sha1.New, []byte(sub.secret))
+			r = io.TeeReader(r, h)
+		}
+
+		eventTopic, notifs, err := parseEvent(req.Header.Get("Content-Type"), r)
+		if err != nil {
+			http.Error(resp, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if eventTopic != topic {
+			http.Error(resp, "Invalid topic", http.StatusNotFound)
+			return
+		}
+
+		// Make sure the whole body has been read
+		io.Copy(ioutil.Discard, r)
+
+		// Check signature
+		if h != nil {
+			s := strings.TrimPrefix(req.Header.Get("X-Hub-Signature"), "sha1=")
+			mac, err := hex.DecodeString(s)
+			if err != nil || !hmac.Equal(mac, h.Sum(nil)) {
+				// Invalid signature
+				// Ignore message, do not return an error
+				return
+			}
 		}
 
 		sub.notifies <- notifs
