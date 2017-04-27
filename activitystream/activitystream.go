@@ -106,6 +106,7 @@ type Person struct {
 
 type Text struct {
 	Type string `xml:"type,attr"`
+	Lang string `xml:"http://www.w3.org/XML/1998/namespace lang,attr,omitempty"`
 	Body string `xml:",chardata"`
 }
 
