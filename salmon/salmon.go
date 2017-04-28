@@ -4,6 +4,7 @@ package salmon
 
 import (
 	"crypto"
+	"crypto/rsa"
 	"encoding/xml"
 	"errors"
 )
@@ -32,12 +33,16 @@ func (env *MagicEnv) Verify(pk crypto.PublicKey) ([]byte, error) {
 		return nil, errors.New("salmon: no signature in envelope")
 	}
 
-	// TODO: check each available signature
-	if err := verify(env, pk, env.Sig[0].Value); err != nil {
-		return nil, err
+	var err error
+	for _, sig := range env.Sig {
+		if err = verify(env, pk, sig.Value); err == nil {
+			return env.UnverifiedData()
+		} else if err != rsa.ErrVerification {
+			break
+		}
 	}
 
-	return env.UnverifiedData()
+	return nil, err
 }
 
 type MagicData struct {
