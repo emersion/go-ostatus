@@ -19,22 +19,24 @@ import (
 	"log"
 )
 
-type HTTPError struct {
-	Status     string
-	StatusCode int
+// An HTTPError is an HTTP error. Its value is the HTTP status code.
+type HTTPError int
+
+// Error implements error.
+func (err HTTPError) Error() string {
+	return "pubsubhubbub: HTTP request failed"
 }
 
-func (err *HTTPError) Error() string {
-	return "pubsubhubbub: HTTP request failed: " + err.Status
-}
-
+// A DeniedError is returned when a publisher forbids subscription to a feed.
+// Its value is the reason.
 type DeniedError string
 
+// Error implements error.
 func (err DeniedError) Error() string {
 	return "pubsubhubbub: subscription denied: " + string(err)
 }
 
-func parseEvent(mediaType string, body io.Reader) (topic string, feed *activitystream.Feed, err error) {
+func readEvent(mediaType string, body io.Reader) (topic string, feed *activitystream.Feed, err error) {
 	if mediaType != "application/atom+xml" {
 		err = errors.New("pubsubhubbub: unsupported notification media type")
 		return
@@ -69,12 +71,14 @@ type subscription struct {
 	unsubscribes chan error
 }
 
+// A Subscriber subscribes to publishers.
 type Subscriber struct {
 	c             *http.Client
 	callbackURL   string
 	subscriptions map[string]*subscription
 }
 
+// NewSubscriber creates a new subscriber.
 func NewSubscriber(callbackURL string) *Subscriber {
 	return &Subscriber{
 		c:             new(http.Client),
@@ -91,12 +95,13 @@ func (s *Subscriber) request(hub string, data url.Values) error {
 	resp.Body.Close() // We don't need the response body
 
 	if resp.StatusCode != http.StatusAccepted {
-		return &HTTPError{resp.Status, resp.StatusCode}
+		return HTTPError(resp.StatusCode)
 	}
 
 	return nil
 }
 
+// Subscribe subscribes to a topic on a hub. Notifications are sent to notifies.
 func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystream.Feed) error {
 	if _, ok := s.subscriptions[topic]; ok {
 		return errors.New("pubsubhubbub: already subscribed")
@@ -138,6 +143,7 @@ func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystrea
 	return <-sub.subscribes
 }
 
+// Unsubscribe unsubscribes from a topic on a hub.
 func (s *Subscriber) Unsubscribe(hub, topic string) error {
 	sub, ok := s.subscriptions[topic]
 	if !ok {
@@ -155,6 +161,7 @@ func (s *Subscriber) Unsubscribe(hub, topic string) error {
 	return <-sub.unsubscribes
 }
 
+// ServeHTTP implements http.Handler.
 func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
@@ -213,7 +220,7 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			r = io.TeeReader(r, h)
 		}
 
-		eventTopic, notifs, err := parseEvent(req.Header.Get("Content-Type"), r)
+		eventTopic, notifs, err := readEvent(req.Header.Get("Content-Type"), r)
 		if err != nil {
 			http.Error(resp, "Invalid request body", http.StatusBadRequest)
 			return

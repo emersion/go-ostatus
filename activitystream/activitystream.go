@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// A Feed is an activity stream feed.
 type Feed struct {
 	XMLName  xml.Name `xml:"http://www.w3.org/2005/Atom feed"`
 	ID       string   `xml:"id"`
@@ -21,21 +22,22 @@ type Feed struct {
 	Entry    []*Entry `xml:"entry"`
 }
 
+// Read parses a feed from r.
 func Read(r io.Reader) (*Feed, error) {
 	feed := new(Feed)
 	err := xml.NewDecoder(r).Decode(feed)
 	return feed, err
 }
 
-type HTTPError struct {
-	Status     string
-	StatusCode int
-}
+// An HTTPError is an HTTP error. Its value is the HTTP status code.
+type HTTPError int
 
-func (err *HTTPError) Error() string {
+// Error implements error.
+func (err HTTPError) Error() string {
 	return "activitystream: HTTP request failed"
 }
 
+// Get retrieves a feed located at a given URL.
 func Get(url string) (*Feed, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -44,12 +46,13 @@ func Get(url string) (*Feed, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &HTTPError{resp.Status, resp.StatusCode}
+		return nil, HTTPError(resp.StatusCode)
 	}
 
 	return Read(resp.Body)
 }
 
+// WriteTo writes the feed to w.
 func (feed *Feed) WriteTo(w io.Writer) error {
 	if _, err := io.WriteString(w, xml.Header); err != nil {
 		return err
@@ -57,6 +60,7 @@ func (feed *Feed) WriteTo(w io.Writer) error {
 	return xml.NewEncoder(w).Encode(feed)
 }
 
+// An Entry is a feed item.
 type Entry struct {
 	ID        string  `xml:"id"`
 	Title     string  `xml:"title"`
@@ -74,6 +78,7 @@ type Entry struct {
 	InReplyTo *Link `xml:"http://purl.org/syndication/thread/1.0 in-reply-to"`
 }
 
+// A Link provides a relationship between an entry or a person and a URL.
 type Link struct {
 	Rel  string `xml:"rel,attr,omitempty"`
 	Href string `xml:"href,attr"`
@@ -89,6 +94,7 @@ type Link struct {
 	MediaHeight uint `xml:"http://purl.org/syndication/atommedia height,attr,omitempty"`
 }
 
+// A Person is a person.
 type Person struct {
 	ID      string `xml:"id"`
 	URI     string `xml:"uri,omitempty"`
@@ -104,6 +110,7 @@ type Person struct {
 	Note              string `xml:"http://portablecontacts.net/spec/1.0 note,omitempty"`
 }
 
+// A Text has a type and body.
 type Text struct {
 	Type string `xml:"type,attr"`
 	Lang string `xml:"http://www.w3.org/XML/1998/namespace lang,attr,omitempty"`
@@ -112,16 +119,20 @@ type Text struct {
 
 const timeLayout = "2006-01-02T15:04:05-07:00"
 
+// A Time is a formatted time.
 type Time string
 
+// NewTime formats a time.
 func NewTime(t time.Time) Time {
 	return Time(t.Format(timeLayout))
 }
 
+// Time parses a formatted time.
 func (t Time) Time() (time.Time, error) {
 	return time.Parse(timeLayout, string(t))
 }
 
+// An ObjectType describes the type of an object.
 type ObjectType string
 
 const (
@@ -133,6 +144,7 @@ const (
 	ObjectGroup                 = "http://activitystrea.ms/schema/1.0/group"
 )
 
+// A Verb describes an action.
 type Verb string
 
 const (

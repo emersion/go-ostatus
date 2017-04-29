@@ -16,10 +16,22 @@ import (
 	"log"
 )
 
+// DefaultLease is the default duration of a lease, if none is provided by the
+// subscriber.
 var DefaultLease = 24 * time.Hour
 
+func writeEvent(w io.Writer, feed *activitystream.Feed) (mediaType string, err error) {
+	return "application/atom+xml", feed.WriteTo(w)
+}
+
+// A Backend is used to build a publisher.
 type Backend interface {
+	// Subscribe sends content notifications about a topic to notifies in a new
+	// goroutine. The notifies channel should only be closed after a call to
+	// Unsubscribe.
 	Subscribe(topic string, notifies chan<- *activitystream.Feed) error
+	// Unsubscribe closes notifies. The notifies channel must have been provided
+	// to Subscribe.
 	Unsubscribe(notifies chan<- *activitystream.Feed) error
 }
 
@@ -38,7 +50,8 @@ func (s *pubSubscription) receive(c *http.Client) error {
 
 	for notif := range s.notifies {
 		var b bytes.Buffer
-		if err := notif.WriteTo(&b); err != nil {
+		mediaType, err := writeEvent(&b, notif)
+		if err != nil {
 			return err
 		}
 
@@ -51,7 +64,7 @@ func (s *pubSubscription) receive(c *http.Client) error {
 				continue
 			}
 
-			req.Header.Set("Content-Type", "application/atom+xml")
+			req.Header.Set("Content-Type", mediaType)
 
 			if cb.secret != "" {
 				h := hmac.New(sha1.New, []byte(cb.secret))
@@ -77,12 +90,14 @@ func (s *pubSubscription) receive(c *http.Client) error {
 	return nil
 }
 
+// A Publisher distributes content notifications.
 type Publisher struct {
 	be            Backend
 	c             *http.Client
 	subscriptions map[string]*pubSubscription
 }
 
+// NewPublisher creates a new publisher.
 func NewPublisher(be Backend) *Publisher {
 	return &Publisher{
 		be:            be,
@@ -91,6 +106,7 @@ func NewPublisher(be Backend) *Publisher {
 	}
 }
 
+// ServeHTTP implements http.Handler.
 func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
