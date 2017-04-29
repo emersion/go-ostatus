@@ -11,6 +11,8 @@ import (
 
 // TODO: JSON schema
 
+// A MagicEnv is a magic envelope and contains a message bundled along with
+// signature(s) for that message.
 type MagicEnv struct {
 	XMLName  xml.Name    `xml:"http://salmon-protocol.org/ns/magic-env env" json:"-"`
 	Data     *MagicData  `xml:"data" json:"data"`
@@ -19,6 +21,8 @@ type MagicEnv struct {
 	Sig      []*MagicSig `xml:"sig" json:"sigs"`
 }
 
+// UnverifiedData returns this envelope's message, without checking the
+// signature.
 func (env *MagicEnv) UnverifiedData() ([]byte, error) {
 	switch env.Encoding {
 	case "base64url":
@@ -28,6 +32,8 @@ func (env *MagicEnv) UnverifiedData() ([]byte, error) {
 	}
 }
 
+// Verify checks that the envelope is signed with pk and returns the verified
+// message.
 func (env *MagicEnv) Verify(pk crypto.PublicKey) ([]byte, error) {
 	if len(env.Sig) == 0 {
 		return nil, errors.New("salmon: no signature in envelope")
@@ -45,11 +51,13 @@ func (env *MagicEnv) Verify(pk crypto.PublicKey) ([]byte, error) {
 	return nil, err
 }
 
+// A MagicaData contains a type and a value.
 type MagicData struct {
 	Type  string `xml:"type,attr"`
 	Value string `xml:",chardata"`
 }
 
+// A MagicSig is a magic signature.
 type MagicSig struct {
 	KeyID string `xml:"key_id,attr" json:"key_id"`
 	Value string `xml:",chardata" json:"value"`

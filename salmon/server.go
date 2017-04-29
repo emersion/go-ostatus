@@ -8,7 +8,9 @@ import (
 	"github.com/emersion/go-ostatus/activitystream"
 )
 
+// A Backend is used to build salmon endpoints.
 type Backend interface {
+	// Notify is called when a salmon is pushed to the endpoint.
 	Notify(*activitystream.Entry) error
 }
 
@@ -16,6 +18,7 @@ type handler struct {
 	be Backend
 }
 
+// ServeHTTP implements http.Handler.
 func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
@@ -63,6 +66,7 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// NewHandler creates a new salmon endpoint.
 func NewHandler(be Backend) http.Handler {
 	return &handler{be}
 }

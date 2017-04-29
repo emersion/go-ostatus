@@ -8,8 +8,10 @@ import (
 	"net/http"
 )
 
+// ErrNoSuchResource can be returned by a Backend if a resource doesn't exist.
 var ErrNoSuchResource = errors.New("xrd: no such resource")
 
+// A Backend is used to build an XRD endpoint.
 type Backend interface {
 	Resource(req *http.Request) (*Resource, error)
 }
@@ -18,7 +20,9 @@ type handler struct {
 	be Backend
 }
 
+// ServeHTTP implements http.Handler.
 func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	// Default Access-Control-Allow-Origin to *
 	if resp.Header().Get("Access-Control-Allow-Origin") == "" {
 		resp.Header().Set("Access-Control-Allow-Origin", "*")
 	}
@@ -50,6 +54,7 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// NewHandler creates a new XRD endpoint.
 func NewHandler(be Backend) http.Handler {
 	return &handler{be}
 }

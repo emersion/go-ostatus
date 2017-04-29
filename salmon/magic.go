@@ -30,6 +30,7 @@ func encodeToString(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+// FormatPublicKey formats a public key into the application/magic-key format.
 func FormatPublicKey(pk crypto.PublicKey) (string, error) {
 	switch pk := pk.(type) {
 	case *rsa.PublicKey:
@@ -41,6 +42,7 @@ func FormatPublicKey(pk crypto.PublicKey) (string, error) {
 	}
 }
 
+// ParsePublicKey parses a public key from the application/magic-key format.
 func ParsePublicKey(s string) (crypto.PublicKey, error) {
 	parts := strings.Split(s, ".")
 	switch strings.ToUpper(parts[0]) {
@@ -67,6 +69,7 @@ func ParsePublicKey(s string) (crypto.PublicKey, error) {
 	}
 }
 
+// PublicKeyDataURL returns the data URL for a public key.
 func PublicKeyDataURL(pk crypto.PublicKey) (string, error) {
 	s, err := FormatPublicKey(pk)
 	if err != nil {
@@ -75,6 +78,7 @@ func PublicKeyDataURL(pk crypto.PublicKey) (string, error) {
 	return "data:application/magic-public-key," + s, nil
 }
 
+// PublicKeyID returns the key identifier for a public key.
 func PublicKeyID(pk crypto.PublicKey) (string, error) {
 	s, err := FormatPublicKey(pk)
 	if err != nil {

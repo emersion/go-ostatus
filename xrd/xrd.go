@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 )
 
+// A Resource is a resource descriptor.
 type Resource struct {
 	XMLName    xml.Name          `xml:"http://docs.oasis-open.org/ns/xri/xrd-1.0 XRD" json:"-"`
 	Subject    string            `xml:"Subject" json:"subject,omitempty"`
@@ -14,6 +15,7 @@ type Resource struct {
 	Links      []*Link           `xml:"Link" json:"links,omitempty"`
 }
 
+// A Link provides a relationship between a resource and a URL.
 type Link struct {
 	Rel        string            `xml:"rel,attr,omitempty" json:"rel"`
 	Type       string            `xml:"type,attr,omitempty" json:"type,omitempty"`

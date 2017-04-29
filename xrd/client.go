@@ -7,12 +7,16 @@ import (
 	"net/http"
 )
 
+// An HTTPError is returned when an HTTP error has occured. Its value is the
+// HTTP status code.
 type HTTPError int
 
+// Error implements error.
 func (err HTTPError) Error() string {
 	return "xrd: HTTP request failed"
 }
 
+// Get queries a resource.
 func Get(url string) (*Resource, error) {
 	resp, err := http.Get(url)
 	if err != nil {
