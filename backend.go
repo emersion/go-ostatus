@@ -7,6 +7,7 @@ import (
 	"github.com/emersion/go-ostatus/xrd/webfinger"
 )
 
+// A Backend is used to create OStatus instances.
 type Backend interface {
 	webfinger.Backend
 	pubsubhubbub.Backend

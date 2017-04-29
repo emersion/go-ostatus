@@ -10,16 +10,13 @@ import (
 	"github.com/emersion/go-ostatus/xrd/webfinger"
 )
 
+// Default endpoints.
 var (
 	HubPath    = "/hub"
 	SalmonPath = "/salmon"
 )
 
-type handler struct {
-	http.Handler
-	be Backend
-}
-
+// NewHandler creates a new OStatus endpoint.
 func NewHandler(be Backend, rootURL string) http.Handler {
 	mux := http.NewServeMux()
 
@@ -49,8 +46,5 @@ func NewHandler(be Backend, rootURL string) http.Handler {
 		}
 	})
 
-	return &handler{
-		Handler: mux,
-		be:      be,
-	}
+	return mux
 }
