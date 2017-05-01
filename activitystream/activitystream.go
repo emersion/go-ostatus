@@ -75,7 +75,7 @@ type Entry struct {
 	Verb       Verb       `xml:"http://activitystrea.ms/spec/1.0/ verb,omitempty"`
 	Object     *Entry     `xml:"http://activitystrea.ms/spec/1.0/ object"`
 
-	InReplyTo *Link `xml:"http://purl.org/syndication/thread/1.0 in-reply-to"`
+	InReplyTo *InReplyTo `xml:"http://purl.org/syndication/thread/1.0 in-reply-to"`
 }
 
 // A Link provides a relationship between an entry or a person and a URL.
@@ -130,6 +130,15 @@ func NewTime(t time.Time) Time {
 // Time parses a formatted time.
 func (t Time) Time() (time.Time, error) {
 	return time.Parse(timeLayout, string(t))
+}
+
+// InReplyTo is used to indicate that an entry is a response to another
+// resource.
+type InReplyTo struct {
+	Ref string `xml:"ref,attr"`
+	Href string `xml:"href,attr,omitempty"`
+	Source string `xml:"source,attr,omitempty"`
+	Type string `xml:"type,attr,omitempty"`
 }
 
 // An ObjectType describes the type of an object.
