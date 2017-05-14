@@ -22,6 +22,11 @@ type handler struct {
 
 // ServeHTTP implements http.Handler.
 func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(resp, "Unsupported method", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Default Access-Control-Allow-Origin to *
 	if resp.Header().Get("Access-Control-Allow-Origin") == "" {
 		resp.Header().Set("Access-Control-Allow-Origin", "*")

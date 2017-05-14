@@ -166,7 +166,9 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
 	query := req.URL.Query()
-	if mode := query.Get("hub.mode"); mode != "" {
+	switch req.Method {
+	case http.MethodGet:
+		mode := query.Get("hub.mode")
 		topic := query.Get("hub.topic")
 
 		sub, ok := s.subscriptions[topic]
@@ -204,7 +206,7 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 
 		resp.Write([]byte(query.Get("hub.challenge")))
-	} else {
+	case http.MethodPost:
 		topic := query.Get("topic")
 
 		sub, ok := s.subscriptions[topic]
@@ -247,5 +249,7 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 
 		sub.notifies <- notifs
+	default:
+		http.Error(resp, "Unsupported method", http.StatusMethodNotAllowed)
 	}
 }

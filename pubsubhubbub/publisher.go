@@ -271,7 +271,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
 	if req.Method != http.MethodPost {
-		http.Error(resp, "Invalid method", http.StatusBadRequest)
+		http.Error(resp, "Unsupported method", http.StatusMethodNotAllowed)
 		return
 	}
 
