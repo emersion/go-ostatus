@@ -241,6 +241,7 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			if err != nil || !hmac.Equal(mac, h.Sum(nil)) {
 				// Invalid signature
 				// Ignore message, do not return an error
+				log.Printf("pubsubhubbub: invalid signature for topic %q\n", topic)
 				return
 			}
 		}
