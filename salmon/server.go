@@ -22,7 +22,7 @@ type handler struct {
 func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
-	if req.Method != "POST" {
+	if req.Method != http.MethodPost {
 		http.Error(resp, "Unsupported method", http.StatusBadRequest)
 		return
 	}

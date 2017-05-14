@@ -38,18 +38,16 @@ type Backend interface {
 }
 
 type pubSubscription struct {
-	notifies  <-chan *activitystream.Feed
+	notifies  chan *activitystream.Feed
 	callbacks map[string]*pubCallback
 }
 
 type pubCallback struct {
-	lease  time.Time
 	secret string
+	timer  *time.Timer
 }
 
 func (s *pubSubscription) receive(c *http.Client) error {
-	// TODO: cancel subscription if lease expires
-
 	for notif := range s.notifies {
 		var b bytes.Buffer
 		mediaType, err := writeEvent(&b, notif)
@@ -130,15 +128,41 @@ func (p *Publisher) subscribeIfNotExist(topicURL string) (*pubSubscription, erro
 
 // Register registers an existing subscription. It can be used to restore
 // subscriptions when restarting the server.
-func (p *Publisher) Register(topicURL, callbackURL, secret string, lease time.Time) error {
+func (p *Publisher) Register(topicURL, callbackURL, secret string, leaseEnd time.Time) error {
 	s, err := p.subscribeIfNotExist(topicURL)
 	if err != nil {
 		return err
 	}
 
 	s.callbacks[callbackURL] = &pubCallback{
-		lease:  lease,
 		secret: secret,
+		timer: time.AfterFunc(time.Now().Sub(leaseEnd), func() {
+			p.unregister(topicURL, callbackURL)
+		}),
+	}
+	return nil
+}
+
+func (p *Publisher) unregister(topicURL, callbackURL string) error {
+	s, ok := p.subscriptions[topicURL]
+	if !ok {
+		return nil
+	}
+	c, ok := s.callbacks[callbackURL]
+	if !ok {
+		return nil
+	}
+
+	if !c.timer.Stop() {
+		<-c.timer.C
+	}
+
+	delete(s.callbacks, callbackURL)
+	if len(s.callbacks) == 0 {
+		if err := p.be.Unsubscribe(s.notifies); err != nil {
+			return err
+		}
+		delete(p.subscriptions, topicURL)
 	}
 	return nil
 }
@@ -209,14 +233,16 @@ func (p *Publisher) Subscribe(topicURL, callbackURL, secret string, lease time.D
 	}
 
 	s.callbacks[callbackURL] = &pubCallback{
-		lease:  time.Now().Add(lease),
 		secret: secret,
+		timer: time.AfterFunc(lease, func() {
+			p.unregister(topicURL, callbackURL)
+		}),
 	}
 	return nil
 }
 
 // Unsubscribe processes an unsubscribe request.
-func (p *Publisher) Unsubscribe(callbackURL, topicURL string) error {
+func (p *Publisher) Unsubscribe(topicURL, callbackURL string) error {
 	u, err := url.Parse(callbackURL)
 	if err != nil {
 		return err
@@ -237,8 +263,7 @@ func (p *Publisher) Unsubscribe(callbackURL, topicURL string) error {
 		return err
 	}
 
-	delete(s.callbacks, callbackURL)
-	return nil
+	return p.unregister(topicURL, callbackURL)
 }
 
 // ServeHTTP implements http.Handler.
@@ -269,9 +294,9 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		var err error
 		switch mode {
 		case "subscribe":
-			err = p.Subscribe(callbackURL, topicURL, secret, DefaultLease)
+			err = p.Subscribe(topicURL, callbackURL, secret, DefaultLease)
 		case "unsubscribe":
-			err = p.Unsubscribe(callbackURL, topicURL)
+			err = p.Unsubscribe(topicURL, callbackURL)
 		}
 		if err != nil {
 			log.Println("pubsubhubbub: cannot %v to %q with callback %q: %v", mode, topicURL, callbackURL, err)
