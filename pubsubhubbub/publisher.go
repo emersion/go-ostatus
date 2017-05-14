@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -28,7 +29,8 @@ func writeEvent(w io.Writer, feed *activitystream.Feed) (mediaType string, err e
 type Backend interface {
 	// Subscribe sends content notifications about a topic to notifies in a new
 	// goroutine. The notifies channel should only be closed after a call to
-	// Unsubscribe.
+	// Unsubscribe. If the subscription is not possible, it should return a
+	// DeniedError.
 	Subscribe(topic string, notifies chan<- *activitystream.Feed) error
 	// Unsubscribe closes notifies. The notifies channel must have been provided
 	// to Subscribe.
@@ -58,7 +60,7 @@ func (s *pubSubscription) receive(c *http.Client) error {
 		// TODO: retry if a request fails
 		for callbackURL, cb := range s.callbacks {
 			body := bytes.NewReader(b.Bytes())
-			req, err := http.NewRequest("POST", callbackURL, body)
+			req, err := http.NewRequest(http.MethodPost, callbackURL, body)
 			if err != nil {
 				log.Println("pubsubhubbub: failed create notification:", err)
 				continue
@@ -106,11 +108,144 @@ func NewPublisher(be Backend) *Publisher {
 	}
 }
 
+func (p *Publisher) subscribeIfNotExist(topicURL string) (*pubSubscription, error) {
+	s, ok := p.subscriptions[topicURL]
+	if !ok {
+		notifies := make(chan *activitystream.Feed)
+		if err := p.be.Subscribe(topicURL, notifies); err != nil {
+			return nil, err
+		}
+
+		s = &pubSubscription{
+			notifies:  notifies,
+			callbacks: make(map[string]*pubCallback),
+		}
+		go s.receive(p.c)
+
+		p.subscriptions[topicURL] = s
+	}
+
+	return s, nil
+}
+
+// Register registers an existing subscription. It can be used to restore
+// subscriptions when restarting the server.
+func (p *Publisher) Register(topicURL, callbackURL, secret string, lease time.Time) error {
+	s, err := p.subscribeIfNotExist(topicURL)
+	if err != nil {
+		return err
+	}
+
+	s.callbacks[callbackURL] = &pubCallback{
+		lease:  lease,
+		secret: secret,
+	}
+	return nil
+}
+
+func (p *Publisher) verify(u *url.URL, q url.Values) error {
+	challenge, err := generateChallenge()
+	if err != nil {
+		return err
+	}
+	q.Set("hub.challenge", challenge)
+
+	u.RawQuery = q.Encode()
+	subResp, err := p.c.Get(u.String())
+	if err != nil {
+		return err
+	}
+	defer subResp.Body.Close()
+
+	if subResp.StatusCode/100 != 2 {
+		return HTTPError(subResp.StatusCode)
+	}
+
+	buf := make([]byte, len(challenge))
+	if _, err := io.ReadFull(subResp.Body, buf); err != nil {
+		return err
+	} else if !bytes.Equal(buf, []byte(challenge)) {
+		return errors.New("pubsubhubbub: invalid challenge")
+	}
+
+	return nil
+}
+
+func (p *Publisher) denied(u *url.URL, q url.Values, deniedErr DeniedError) error {
+	q.Set("hub.mode", "denied")
+	q.Set("hub.reason", string(deniedErr))
+	u.RawQuery = q.Encode()
+	resp, err := p.c.Get(u.String())
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+// Subscribe processes a subscribe request.
+func (p *Publisher) Subscribe(topicURL, callbackURL, secret string, lease time.Duration) error {
+	u, err := url.Parse(callbackURL)
+	if err != nil {
+		return err
+	}
+	q := u.Query()
+
+	// Subscribe if necessary
+	s, err := p.subscribeIfNotExist(topicURL)
+	if deniedErr, ok := err.(DeniedError); ok {
+		// Send denied notification
+		return p.denied(u, q, deniedErr)
+	} else if err != nil {
+		return err
+	}
+
+	// Verify
+	q.Set("hub.mode", "subscribe")
+	q.Set("hub.topic", topicURL)
+	q.Set("hub.lease_seconds", strconv.Itoa(int(lease.Seconds())))
+	if err := p.verify(u, q); err != nil {
+		return err
+	}
+
+	s.callbacks[callbackURL] = &pubCallback{
+		lease:  time.Now().Add(lease),
+		secret: secret,
+	}
+	return nil
+}
+
+// Unsubscribe processes an unsubscribe request.
+func (p *Publisher) Unsubscribe(callbackURL, topicURL string) error {
+	u, err := url.Parse(callbackURL)
+	if err != nil {
+		return err
+	}
+	q := u.Query()
+
+	s, ok := p.subscriptions[topicURL]
+	if !ok {
+		return nil
+	} else if _, ok := s.callbacks[callbackURL]; !ok {
+		return nil
+	}
+
+	// Verify
+	q.Set("hub.mode", "unsubscribe")
+	q.Set("hub.topic", topicURL)
+	if err := p.verify(u, q); err != nil {
+		return err
+	}
+
+	delete(s.callbacks, callbackURL)
+	return nil
+}
+
 // ServeHTTP implements http.Handler.
 func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 
-	if req.Method != "POST" {
+	if req.Method != http.MethodPost {
 		http.Error(resp, "Invalid method", http.StatusBadRequest)
 		return
 	}
@@ -119,6 +254,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	callbackURL := req.FormValue("hub.callback")
 	topicURL := req.FormValue("hub.topic")
 	secret := req.FormValue("hub.secret")
+	// TODO: hub.lease_seconds
 
 	if mode != "subscribe" && mode != "unsubscribe" {
 		http.Error(resp, "Invalid mode", http.StatusBadRequest)
@@ -129,106 +265,18 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	u, err := url.Parse(callbackURL)
-	if err != nil {
-		http.Error(resp, "Invalid callback URL", http.StatusBadRequest)
-		return
-	}
-	q := u.Query()
-	q.Set("hub.topic", topicURL)
-
-	// TODO: do this in another goroutine
-
-	// Subscribe if necessary
-	var lease time.Time
-	s, ok := p.subscriptions[topicURL]
-	switch mode {
-	case "subscribe":
-		if !ok {
-			notifies := make(chan *activitystream.Feed)
-			if err := p.be.Subscribe(topicURL, notifies); err != nil {
-				if deniedErr, ok := err.(DeniedError); ok {
-					// Send denied notification
-					q.Set("hub.mode", "denied")
-					q.Set("hub.reason", string(deniedErr))
-					u.RawQuery = q.Encode()
-
-					subResp, err := p.c.Get(u.String())
-					if err != nil {
-						log.Println("pubsubhubbub: cannot send HTTP request:", err)
-						return
-					}
-					subResp.Body.Close()
-					return
-				} else {
-					log.Printf("pubsubhubbub: backend returned error when subscribing to %q: %v\n", topicURL, err)
-					http.Error(resp, "Internal Server Error", http.StatusInternalServerError)
-					return
-				}
-			}
-
-			s = &pubSubscription{
-				notifies:  notifies,
-				callbacks: make(map[string]*pubCallback),
-			}
-			go s.receive(p.c)
-
-			p.subscriptions[topicURL] = s
+	go func() {
+		var err error
+		switch mode {
+		case "subscribe":
+			err = p.Subscribe(callbackURL, topicURL, secret, DefaultLease)
+		case "unsubscribe":
+			err = p.Unsubscribe(callbackURL, topicURL)
 		}
-
-		lease = time.Now().Add(DefaultLease)
-	case "unsubscribe":
-		if !ok {
-			return
-		} else if _, ok := s.callbacks[callbackURL]; !ok {
-			return
+		if err != nil {
+			log.Println("pubsubhubbub: cannot %v to %q with callback %q: %v", mode, topicURL, callbackURL, err)
 		}
-	}
-
-	// Verify
-	challenge, err := generateChallenge()
-	if err != nil {
-		log.Println("pubsubhubbub: cannot generate challenge:", err)
-		return
-	}
-
-	q.Set("hub.mode", mode)
-	q.Set("hub.challenge", challenge)
-	if mode == "subscribe" {
-		q.Set("hub.lease_seconds", strconv.Itoa(int(lease.Sub(time.Now()).Seconds())))
-	}
-	u.RawQuery = q.Encode()
-
-	subResp, err := p.c.Get(u.String())
-	if err != nil {
-		log.Println("pubsubhubbub: cannot send HTTP request:", err)
-		return
-	}
-	defer subResp.Body.Close()
-
-	if subResp.StatusCode/100 != 2 {
-		log.Println("pubsubhubbub: HTTP request error:", subResp.Status)
-		return
-	}
-
-	buf := make([]byte, len(challenge))
-	if _, err := io.ReadFull(subResp.Body, buf); err != nil {
-		log.Println("pubsubhubbub: cannot read HTTP response:", err)
-		return
-	} else if !bytes.Equal(buf, []byte(challenge)) {
-		log.Println("pubsubhubbub: invalid challenge")
-		return
-	}
-
-	switch mode {
-	case "subscribe":
-		s.callbacks[callbackURL] = &pubCallback{
-			lease:  lease,
-			secret: secret,
-		}
-	case "unsubscribe":
-		delete(s.callbacks, callbackURL)
-	}
+	}()
 
 	resp.WriteHeader(http.StatusAccepted)
 }

@@ -135,10 +135,10 @@ func (t Time) Time() (time.Time, error) {
 // InReplyTo is used to indicate that an entry is a response to another
 // resource.
 type InReplyTo struct {
-	Ref string `xml:"ref,attr"`
-	Href string `xml:"href,attr,omitempty"`
+	Ref    string `xml:"ref,attr"`
+	Href   string `xml:"href,attr,omitempty"`
 	Source string `xml:"source,attr,omitempty"`
-	Type string `xml:"type,attr,omitempty"`
+	Type   string `xml:"type,attr,omitempty"`
 }
 
 // An ObjectType describes the type of an object.
