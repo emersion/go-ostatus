@@ -92,6 +92,11 @@ func (s *pubSubscription) receive(c *http.Client) error {
 
 // A Publisher distributes content notifications.
 type Publisher struct {
+	// SubscriptionState specifies an optional callback function that is called
+	// when a subscription changes state. leaseEnd is zero if the subscription
+	// ends.
+	SubscriptionState func(topicURL, callbackURL, secret string, leaseEnd time.Time)
+
 	be            Backend
 	c             *http.Client
 	subscriptions map[string]*pubSubscription
@@ -140,6 +145,11 @@ func (p *Publisher) Register(topicURL, callbackURL, secret string, leaseEnd time
 			p.unregister(topicURL, callbackURL)
 		}),
 	}
+
+	if p.SubscriptionState != nil {
+		p.SubscriptionState(topicURL, callbackURL, secret, leaseEnd)
+	}
+
 	return nil
 }
 
@@ -164,6 +174,11 @@ func (p *Publisher) unregister(topicURL, callbackURL string) error {
 		}
 		delete(p.subscriptions, topicURL)
 	}
+
+	if p.SubscriptionState != nil {
+		p.SubscriptionState(topicURL, callbackURL, c.secret, time.Time{})
+	}
+
 	return nil
 }
 
