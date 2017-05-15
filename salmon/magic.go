@@ -11,6 +11,9 @@ import (
 	"strings"
 )
 
+// MagicPublicKeyRel is the magic-public-key relation.
+const MagicPublicKeyRel = "magic-public-key"
+
 var (
 	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")
 	errMalformedPublicKey   = errors.New("salmon: malformed public key")
@@ -69,13 +72,24 @@ func ParsePublicKey(s string) (crypto.PublicKey, error) {
 	}
 }
 
-// PublicKeyDataURL returns the data URL for a public key.
-func PublicKeyDataURL(pk crypto.PublicKey) (string, error) {
+const dataURLPrefix = "data:application/magic-public-key,"
+
+// FormatPublicKeyDataURL returns the data URL for a public key.
+func FormatPublicKeyDataURL(pk crypto.PublicKey) (string, error) {
 	s, err := FormatPublicKey(pk)
 	if err != nil {
 		return "", err
 	}
-	return "data:application/magic-public-key," + s, nil
+	return dataURLPrefix + s, nil
+}
+
+// ParsePublicKeyDataURL parses a public key data URL.
+func ParsePublicKeyDataURL(u string) (crypto.PublicKey, error) {
+	// TODO: full data URL support
+	if !strings.HasPrefix(u, dataURLPrefix) {
+		return nil, errors.New("salmon: not a public key data URL")
+	}
+	return ParsePublicKey(strings.TrimPrefix(u, dataURLPrefix))
 }
 
 // PublicKeyID returns the key identifier for a public key.

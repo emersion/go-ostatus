@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -108,6 +109,19 @@ type Person struct {
 	PreferredUsername string `xml:"http://portablecontacts.net/spec/1.0 preferredUsername,omitempty"`
 	DisplayName       string `xml:"http://portablecontacts.net/spec/1.0 displayName,omitempty"`
 	Note              string `xml:"http://portablecontacts.net/spec/1.0 note,omitempty"`
+}
+
+// AccountURI returns this person's acct: URI.
+func (p *Person) AccountURI() string {
+	if strings.HasPrefix(p.URI, "acct:") {
+		return p.URI
+	}
+
+	if p.Email != "" {
+		return "acct:" + p.Email
+	}
+
+	return ""
 }
 
 // A Text has a type and body.

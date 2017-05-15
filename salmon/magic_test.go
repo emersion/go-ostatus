@@ -2,9 +2,9 @@ package salmon
 
 import (
 	"crypto/rsa"
-	"testing"
-	"reflect"
 	"math/big"
+	"reflect"
+	"testing"
 )
 
 var testPublicKeyString = "RSA.mVgY8RN6URBTstndvmUUPb4UZTdwvwmddSKE5z_jvKUEK6yk1u3rrC9yN8k6FilGj9K0eeUPe2hf4Pj-5CmHww.AQAB"
@@ -45,14 +45,30 @@ func TestParsePublicKey(t *testing.T) {
 	}
 }
 
-func TestPublicKeyDataURL(t *testing.T) {
-	s, err := PublicKeyDataURL(testPublicKey)
+func TestFormatPublicKeyDataURL(t *testing.T) {
+	s, err := FormatPublicKeyDataURL(testPublicKey)
 	if err != nil {
 		t.Fatal("Expected no error when getting public key data URL, got:", err)
 	}
 
 	if s != testDataURL {
 		t.Errorf("Invalid formatted public key: expected \n%v\n but got \n%v", testDataURL, s)
+	}
+}
+
+func TestParsePublicKeyDataURL(t *testing.T) {
+	pub, err := ParsePublicKeyDataURL(testDataURL)
+	if err != nil {
+		t.Fatal("Expected no error when parsing public key data URL, got:", err)
+	}
+
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		t.Fatalf("Expected a *rsa.PublicKey, got: %T", pub)
+	}
+
+	if !reflect.DeepEqual(testPublicKey, rsaPub) {
+		t.Errorf("Invalid public key data URL: expected \n%#v\n but got \n%#v", testPublicKey, rsaPub)
 	}
 }
 

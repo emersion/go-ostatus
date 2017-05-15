@@ -32,23 +32,22 @@ func (env *MagicEnv) UnverifiedData() ([]byte, error) {
 	}
 }
 
-// Verify checks that the envelope is signed with pk and returns the verified
-// message.
-func (env *MagicEnv) Verify(pk crypto.PublicKey) ([]byte, error) {
+// Verify checks that the envelope is signed with pk.
+func (env *MagicEnv) Verify(pk crypto.PublicKey) error {
 	if len(env.Sig) == 0 {
-		return nil, errors.New("salmon: no signature in envelope")
+		return errors.New("salmon: no signature in envelope")
 	}
 
 	var err error
 	for _, sig := range env.Sig {
 		if err = verify(env, pk, sig.Value); err == nil {
-			return env.UnverifiedData()
+			return nil
 		} else if err != rsa.ErrVerification {
 			break
 		}
 	}
 
-	return nil, err
+	return err
 }
 
 // A MagicaData contains a type and a value.

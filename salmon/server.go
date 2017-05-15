@@ -10,6 +10,8 @@ import (
 
 // A Backend is used to build salmon endpoints.
 type Backend interface {
+	PublicKeyBackend
+
 	// Notify is called when a salmon is pushed to the endpoint.
 	Notify(*activitystream.Entry) error
 }
@@ -41,8 +43,6 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// TODO: get user public key
-	// TODO: check signature
 	b, err := env.UnverifiedData()
 	if err != nil {
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
@@ -60,10 +60,32 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	accountURI := ""
+	if entry.Author != nil {
+		accountURI = entry.Author.AccountURI()
+	}
+	if accountURI == "" {
+		http.Error(resp, "Cannot find account URI from payload", http.StatusBadRequest)
+		return
+	}
+
+	pub, err := h.be.PublicKey(accountURI)
+	if err != nil {
+		http.Error(resp, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := env.Verify(pub); err != nil {
+		http.Error(resp, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if err := h.be.Notify(entry); err != nil {
 		http.Error(resp, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	resp.WriteHeader(http.StatusAccepted)
 }
 
 // NewHandler creates a new salmon endpoint.
