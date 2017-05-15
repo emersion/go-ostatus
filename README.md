@@ -16,7 +16,7 @@ The protocol suite includes:
 * [WebFinger](https://tools.ietf.org/html/rfc7033)
 * [LRDD](https://tools.ietf.org/html/draft-hammer-discovery-06)
 * [Web Linking](https://tools.ietf.org/html/rfc5988)
-* [Salmon](http://www.salmon-protocol.org/salmon-protocol-summary)
+* [Salmon](http://www.salmon-protocol.org/salmon-protocol-summary) ([spec](https://github.com/salmon-protocol/salmon-protocol))
 * [Portable Contacts](https://web.archive.org/web/20160305010620/http://portablecontacts.net/draft-spec.html)
 
 ## License
