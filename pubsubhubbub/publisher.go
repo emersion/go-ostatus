@@ -134,6 +134,11 @@ func (p *Publisher) subscribeIfNotExist(topicURL string) (*pubSubscription, erro
 // Register registers an existing subscription. It can be used to restore
 // subscriptions when restarting the server.
 func (p *Publisher) Register(topicURL, callbackURL, secret string, leaseEnd time.Time) error {
+	lease := leaseEnd.Sub(time.Now())
+	if lease <= 0 {
+		return nil
+	}
+
 	s, err := p.subscribeIfNotExist(topicURL)
 	if err != nil {
 		return err
@@ -141,7 +146,7 @@ func (p *Publisher) Register(topicURL, callbackURL, secret string, leaseEnd time
 
 	s.callbacks[callbackURL] = &pubCallback{
 		secret: secret,
-		timer: time.AfterFunc(time.Now().Sub(leaseEnd), func() {
+		timer: time.AfterFunc(lease, func() {
 			p.unregister(topicURL, callbackURL)
 		}),
 	}

@@ -16,9 +16,17 @@ var (
 	SalmonPath = "/salmon"
 )
 
+// Handler handles OStatus requests.
+type Handler struct {
+	http.Handler
+
+	Publisher *pubsubhubbub.Publisher
+}
+
 // NewHandler creates a new OStatus endpoint.
-func NewHandler(be Backend, rootURL string) http.Handler {
+func NewHandler(be Backend, rootURL string) *Handler {
 	mux := http.NewServeMux()
+	h := &Handler{Handler: mux}
 
 	hostmetaResource := &xrd.Resource{
 		Links: []*xrd.Link{
@@ -26,9 +34,12 @@ func NewHandler(be Backend, rootURL string) http.Handler {
 		},
 	}
 
+	p := pubsubhubbub.NewPublisher(be)
+	h.Publisher = p
+
 	mux.Handle(hostmeta.WellKnownPath, hostmeta.NewHandler(hostmetaResource))
 	mux.Handle(webfinger.WellKnownPath, webfinger.NewHandler(be))
-	mux.Handle(HubPath, pubsubhubbub.NewPublisher(be))
+	mux.Handle(HubPath, p)
 	mux.Handle(SalmonPath, salmon.NewHandler(be))
 
 	mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
@@ -46,5 +57,5 @@ func NewHandler(be Backend, rootURL string) http.Handler {
 		}
 	})
 
-	return mux
+	return h
 }
