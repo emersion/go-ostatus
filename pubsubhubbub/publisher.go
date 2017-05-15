@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/emersion/go-ostatus/activitystream"
@@ -40,6 +41,7 @@ type Backend interface {
 type pubSubscription struct {
 	notifies  chan *activitystream.Feed
 	callbacks map[string]*pubCallback
+	locker    sync.Mutex
 }
 
 type pubCallback struct {
@@ -56,35 +58,39 @@ func (s *pubSubscription) receive(c *http.Client) error {
 		}
 
 		// TODO: retry if a request fails
+		s.locker.Lock()
 		for callbackURL, cb := range s.callbacks {
-			body := bytes.NewReader(b.Bytes())
-			req, err := http.NewRequest(http.MethodPost, callbackURL, body)
-			if err != nil {
-				log.Println("pubsubhubbub: failed create notification:", err)
-				continue
-			}
+			go func() {
+				body := bytes.NewReader(b.Bytes())
+				req, err := http.NewRequest(http.MethodPost, callbackURL, body)
+				if err != nil {
+					log.Println("pubsubhubbub: failed create notification:", err)
+					return
+				}
 
-			req.Header.Set("Content-Type", mediaType)
+				req.Header.Set("Content-Type", mediaType)
 
-			if cb.secret != "" {
-				h := hmac.New(sha1.New, []byte(cb.secret))
-				h.Write(b.Bytes())
-				sig := hex.EncodeToString(h.Sum(nil))
-				req.Header.Set("X-Hub-Signature", "sha1="+sig)
-			}
+				if cb.secret != "" {
+					h := hmac.New(sha1.New, []byte(cb.secret))
+					h.Write(b.Bytes())
+					sig := hex.EncodeToString(h.Sum(nil))
+					req.Header.Set("X-Hub-Signature", "sha1="+sig)
+				}
 
-			resp, err := c.Do(req)
-			if err != nil {
-				log.Println("pubsubhubbub: failed to push notification:", err)
-				continue
-			}
-			resp.Body.Close()
+				resp, err := c.Do(req)
+				if err != nil {
+					log.Println("pubsubhubbub: failed to push notification:", err)
+					return
+				}
+				resp.Body.Close()
 
-			if resp.StatusCode/100 != 2 {
-				log.Println("pubsubhubbub: failed to push notification:", resp.StatusCode, resp.Status)
-				continue
-			}
+				if resp.StatusCode/100 != 2 {
+					log.Println("pubsubhubbub: failed to push notification:", resp.StatusCode, resp.Status)
+					return
+				}
+			}()
 		}
+		s.locker.Unlock()
 	}
 
 	return nil
@@ -100,6 +106,7 @@ type Publisher struct {
 	be            Backend
 	c             *http.Client
 	subscriptions map[string]*pubSubscription
+	locker        sync.Mutex
 }
 
 // NewPublisher creates a new publisher.
@@ -111,21 +118,29 @@ func NewPublisher(be Backend) *Publisher {
 	}
 }
 
-func (p *Publisher) subscribeIfNotExist(topicURL string) (*pubSubscription, error) {
+func (p *Publisher) createSubscription(topicURL string) (s *pubSubscription, created bool) {
+	p.locker.Lock()
+	defer p.locker.Unlock()
+
 	s, ok := p.subscriptions[topicURL]
 	if !ok {
-		notifies := make(chan *activitystream.Feed)
-		if err := p.be.Subscribe(topicURL, notifies); err != nil {
+		s = &pubSubscription{
+			notifies:  make(chan *activitystream.Feed),
+			callbacks: make(map[string]*pubCallback),
+		}
+		p.subscriptions[topicURL] = s
+	}
+	return s, ok
+}
+
+func (p *Publisher) subscribeIfNotExist(topicURL string) (*pubSubscription, error) {
+	s, ok := p.createSubscription(topicURL)
+	if !ok {
+		if err := p.be.Subscribe(topicURL, s.notifies); err != nil {
 			return nil, err
 		}
 
-		s = &pubSubscription{
-			notifies:  notifies,
-			callbacks: make(map[string]*pubCallback),
-		}
 		go s.receive(p.c)
-
-		p.subscriptions[topicURL] = s
 	}
 
 	return s, nil
@@ -144,12 +159,14 @@ func (p *Publisher) Register(topicURL, callbackURL, secret string, leaseEnd time
 		return err
 	}
 
+	s.locker.Lock()
 	s.callbacks[callbackURL] = &pubCallback{
 		secret: secret,
 		timer: time.AfterFunc(lease, func() {
 			p.unregister(topicURL, callbackURL)
 		}),
 	}
+	s.locker.Unlock()
 
 	if p.SubscriptionState != nil {
 		p.SubscriptionState(topicURL, callbackURL, secret, leaseEnd)
@@ -159,10 +176,16 @@ func (p *Publisher) Register(topicURL, callbackURL, secret string, leaseEnd time
 }
 
 func (p *Publisher) unregister(topicURL, callbackURL string) error {
+	p.locker.Lock()
 	s, ok := p.subscriptions[topicURL]
+	p.locker.Unlock()
 	if !ok {
 		return nil
 	}
+
+	s.locker.Lock()
+	defer s.locker.Unlock()
+
 	c, ok := s.callbacks[callbackURL]
 	if !ok {
 		return nil
@@ -252,12 +275,14 @@ func (p *Publisher) Subscribe(topicURL, callbackURL, secret string, lease time.D
 		return err
 	}
 
+	s.locker.Lock()
 	s.callbacks[callbackURL] = &pubCallback{
 		secret: secret,
 		timer: time.AfterFunc(lease, func() {
 			p.unregister(topicURL, callbackURL)
 		}),
 	}
+	s.locker.Unlock()
 	return nil
 }
 
@@ -269,11 +294,18 @@ func (p *Publisher) Unsubscribe(topicURL, callbackURL string) error {
 	}
 	q := u.Query()
 
+	p.locker.Lock()
 	s, ok := p.subscriptions[topicURL]
+	p.locker.Unlock()
 	if !ok {
 		return nil
-	} else if _, ok := s.callbacks[callbackURL]; !ok {
-		return nil
+	} else {
+		s.locker.Lock()
+		_, ok := s.callbacks[callbackURL]
+		s.locker.Unlock()
+		if !ok {
+			return nil
+		}
 	}
 
 	// Verify
