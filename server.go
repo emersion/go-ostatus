@@ -24,15 +24,9 @@ type Handler struct {
 }
 
 // NewHandler creates a new OStatus endpoint.
-func NewHandler(be Backend, rootURL string) *Handler {
+func NewHandler(be Backend, hostmetaResource *xrd.Resource) *Handler {
 	mux := http.NewServeMux()
 	h := &Handler{Handler: mux}
-
-	hostmetaResource := &xrd.Resource{
-		Links: []*xrd.Link{
-			{Rel: "lrdd", Type: "application/jrd+json", Template: rootURL + webfinger.WellKnownPathTemplate},
-		},
-	}
 
 	p := pubsubhubbub.NewPublisher(be)
 	h.Publisher = p

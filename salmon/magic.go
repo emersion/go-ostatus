@@ -12,7 +12,7 @@ import (
 )
 
 // MagicPublicKeyRel is the magic-public-key relation.
-const MagicPublicKeyRel = "magic-public-key"
+const RelMagicPublicKey = "magic-public-key"
 
 var (
 	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")

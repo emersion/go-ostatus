@@ -9,6 +9,9 @@ import (
 	"errors"
 )
 
+// Rel is the salmon relation.
+const Rel = "salmon"
+
 // TODO: JSON schema
 
 // A MagicEnv is a magic envelope and contains a message bundled along with

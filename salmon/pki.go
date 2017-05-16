@@ -13,7 +13,7 @@ func ResourcePublicKey(resource *xrd.Resource) (crypto.PublicKey, error) {
 	// TODO: multiple keys support
 	var link *xrd.Link
 	for _, l := range resource.Links {
-		if l.Rel == MagicPublicKeyRel {
+		if l.Rel == RelMagicPublicKey {
 			link = l
 			break
 		}

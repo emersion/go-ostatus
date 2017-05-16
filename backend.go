@@ -12,5 +12,7 @@ type Backend interface {
 	webfinger.Backend
 	pubsubhubbub.Backend
 	salmon.Backend
+
+	// Feed fetches a feed about a topic.
 	Feed(topic string) (*activitystream.Feed, error)
 }
