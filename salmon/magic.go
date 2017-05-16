@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"unicode"
 )
 
 // MagicPublicKeyRel is the magic-public-key relation.
@@ -22,6 +23,13 @@ var (
 )
 
 func decodeString(s string) ([]byte, error) {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, s)
+
 	// The spec says to use URL encoding without padding, but some implementations
 	// add padding (e.g. Mastodon).
 	if b, err := base64.RawURLEncoding.DecodeString(s); err == nil {
@@ -107,7 +115,7 @@ func PublicKeyID(pk crypto.PublicKey) (string, error) {
 }
 
 func verify(env *MagicEnv, pk crypto.PublicKey, sig string) error {
-	sigb, err := base64.RawURLEncoding.DecodeString(sig)
+	sigb, err := decodeString(sig)
 	if err != nil {
 		return err
 	}
@@ -120,7 +128,7 @@ func verify(env *MagicEnv, pk crypto.PublicKey, sig string) error {
 	io.WriteString(h, env.Data.Value+"."+mediaType+"."+encoding+"."+alg)
 	hashed := h.Sum(nil)
 
-	switch alg {
+	switch strings.ToUpper(env.Alg) {
 	case "RSA-SHA256":
 		pk, ok := pk.(*rsa.PublicKey)
 		if !ok {
