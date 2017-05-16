@@ -3,6 +3,7 @@ package salmon
 import (
 	"crypto"
 	"crypto/rsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -16,7 +17,7 @@ import (
 const RelMagicPublicKey = "magic-public-key"
 
 var (
-	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")
+	errUnknownKeyType       = errors.New("salmon: unknown key type")
 	errMalformedPublicKey   = errors.New("salmon: malformed public key")
 	errUnknownAlg           = errors.New("salmon: unknown signature algorithm")
 	errInvalidPublicKeyType = errors.New("salmon: invalid public key type")
@@ -50,7 +51,7 @@ func FormatPublicKey(pk crypto.PublicKey) (string, error) {
 		e := encodeToString(big.NewInt(int64(pk.E)).Bytes())
 		return "RSA." + n + "." + e, nil
 	default:
-		return "", errUnknownPublicKeyType
+		return "", errUnknownKeyType
 	}
 }
 
@@ -77,7 +78,7 @@ func ParsePublicKey(s string) (crypto.PublicKey, error) {
 			E: int(big.NewInt(0).SetBytes(e).Int64()),
 		}, nil
 	default:
-		return nil, errUnknownPublicKeyType
+		return nil, errUnknownKeyType
 	}
 }
 
@@ -114,19 +115,61 @@ func PublicKeyID(pk crypto.PublicKey) (string, error) {
 	return id, nil
 }
 
+func computeHash(env *MagicEnv) ([]byte, error) {
+	mediaType := encodeToString([]byte(env.Data.Type))
+	encoding := encodeToString([]byte(env.Encoding))
+	alg := encodeToString([]byte(env.Alg))
+
+	h := sha256.New()
+	_, err := io.WriteString(h, env.Data.Value+"."+mediaType+"."+encoding+"."+alg)
+	if err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
+}
+
+func sign(env *MagicEnv, priv crypto.PrivateKey) error {
+	switch priv := priv.(type) {
+	case *rsa.PrivateKey:
+		if env.Alg != "" && env.Alg != "RSA-SHA256" {
+			return errors.New("salmon: cannot sign an envelope with two different algorithms")
+		}
+		env.Alg = "RSA-SHA256"
+
+		hashed, err := computeHash(env)
+		if err != nil {
+			return err
+		}
+
+		sigb, err := rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, hashed)
+		if err != nil {
+			return err
+		}
+
+		keyid, err := PublicKeyID(&priv.PublicKey)
+		if err != nil {
+			return err
+		}
+
+		env.Sig = append(env.Sig, &MagicSig{
+			KeyID: keyid,
+			Value: encodeToString(sigb),
+		})
+		return nil
+	}
+	return errUnknownKeyType
+}
+
 func verify(env *MagicEnv, pk crypto.PublicKey, sig string) error {
 	sigb, err := decodeString(sig)
 	if err != nil {
 		return err
 	}
 
-	mediaType := encodeToString([]byte(env.Data.Type))
-	encoding := encodeToString([]byte(env.Encoding))
-	alg := encodeToString([]byte(env.Alg))
-
-	h := sha256.New()
-	io.WriteString(h, env.Data.Value+"."+mediaType+"."+encoding+"."+alg)
-	hashed := h.Sum(nil)
+	hashed, err := computeHash(env)
+	if err != nil {
+		return err
+	}
 
 	switch strings.ToUpper(env.Alg) {
 	case "RSA-SHA256":

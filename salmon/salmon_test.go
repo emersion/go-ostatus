@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"testing"
 	"strings"
+	"math/rand"
+	"crypto/rsa"
 )
 
 const testReply = `<?xml version='1.0' encoding='UTF-8'?>
@@ -19,7 +21,7 @@ const testReply = `<?xml version='1.0' encoding='UTF-8'?>
 </entry>
 `
 
-const testMagicEnvString = `<?xml version='1.0' encoding='UTF-8'?>
+const testSpecMagicEnvString = `<?xml version='1.0' encoding='UTF-8'?>
 <me:env xmlns:me='http://salmon-protocol.org/ns/magic-env'>
   <me:data type='application/atom+xml'>
     PD94bWwgdmVyc2lvbj0nMS4wJyBlbmNvZGluZz0nVVRGLTgnPz4KPGVudHJ5IHhtbG5zPSdod
@@ -44,7 +46,27 @@ const testMagicEnvString = `<?xml version='1.0' encoding='UTF-8'?>
 `
 
 func TestMagicEnv(t *testing.T) {
-	r := strings.NewReader(testMagicEnvString)
+	// Generate an insecure test key - we don't care
+	priv, err := rsa.GenerateKey(rand.New(rand.NewSource(0)), 512)
+	if err != nil {
+		t.Fatal("Cannot generate private key:", err)
+	}
+
+	env, err := CreateMagicEnv("application/atom+xml", []byte(testReply), priv)
+	if err != nil {
+		t.Fatalf("CreateMagicEnv() = %v", err)
+	}
+
+	if err := env.Verify(&priv.PublicKey); err != nil {
+		t.Errorf("Verify(correct key) = %v", err)
+	}
+	if err := env.Verify(testPublicKey); err == nil {
+		t.Errorf("Verify(incorrect key) = %v", err)
+	}
+}
+
+func TestMagicEnv_UnverifiedData(t *testing.T) {
+	r := strings.NewReader(testSpecMagicEnvString)
 
 	env := new(MagicEnv)
 	if err := xml.NewDecoder(r).Decode(env); err != nil {
@@ -53,17 +75,17 @@ func TestMagicEnv(t *testing.T) {
 
 	b, err := env.UnverifiedData()
 	if err != nil {
-		t.Fatal("Expected no error when decoding data, got:", err)
+		t.Fatalf("UnverifiedData() = %v", err)
 	}
 
 	s := strings.Replace(string(b), "  \n", "\n", -1)
 	s = strings.Trim(s, " ")
 	if s != testReply {
-		t.Errorf("Invalid decoded data: expected \n%v\n but got \n%v", testReply, s)
+		t.Errorf("UnverifiedData() = \n%v\n, want \n%v", s, testReply)
 	}
 
 	// TODO
 	//if err := env.Verify(pub); err != nil {
-	//	t.Fatal("Expected no error when verifying signature, got:", err)
+	//	t.Fatal("Verify() = ", err)
 	//}
 }

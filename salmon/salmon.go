@@ -24,6 +24,23 @@ type MagicEnv struct {
 	Sig      []*MagicSig `xml:"sig" json:"sigs"`
 }
 
+// CreateMagicEnv creates a new magic envelope.
+func CreateMagicEnv(mediaType string, data []byte, priv crypto.PrivateKey) (*MagicEnv, error) {
+	env := &MagicEnv{
+		Data: &MagicData{
+			Type: mediaType,
+			Value: encodeToString(data),
+		},
+		Encoding: "base64url",
+	}
+
+	if err := sign(env, priv); err != nil {
+		return nil, err
+	}
+
+	return env, nil
+}
+
 // UnverifiedData returns this envelope's message, without checking the
 // signature.
 func (env *MagicEnv) UnverifiedData() ([]byte, error) {
@@ -35,15 +52,15 @@ func (env *MagicEnv) UnverifiedData() ([]byte, error) {
 	}
 }
 
-// Verify checks that the envelope is signed with pk.
-func (env *MagicEnv) Verify(pk crypto.PublicKey) error {
+// Verify checks that the envelope is signed with pub.
+func (env *MagicEnv) Verify(pub crypto.PublicKey) error {
 	if len(env.Sig) == 0 {
 		return errors.New("salmon: no signature in envelope")
 	}
 
 	var err error
 	for _, sig := range env.Sig {
-		if err = verify(env, pk, sig.Value); err == nil {
+		if err = verify(env, pub, sig.Value); err == nil {
 			return nil
 		} else if err != rsa.ErrVerification && err != errInvalidPublicKeyType {
 			break
