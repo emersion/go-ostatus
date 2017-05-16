@@ -18,6 +18,7 @@ var (
 	errUnknownPublicKeyType = errors.New("salmon: unknown public key type")
 	errMalformedPublicKey   = errors.New("salmon: malformed public key")
 	errUnknownAlg           = errors.New("salmon: unknown signature algorithm")
+	errInvalidPublicKeyType = errors.New("salmon: invalid public key type")
 )
 
 func decodeString(s string) ([]byte, error) {
@@ -121,7 +122,10 @@ func verify(env *MagicEnv, pk crypto.PublicKey, sig string) error {
 
 	switch alg {
 	case "RSA-SHA256":
-		pk := pk.(*rsa.PublicKey) // TODO: panics
+		pk, ok := pk.(*rsa.PublicKey)
+		if !ok {
+			return errInvalidPublicKeyType
+		}
 		return rsa.VerifyPKCS1v15(pk, crypto.SHA256, hashed, sigb)
 	}
 	return errUnknownAlg

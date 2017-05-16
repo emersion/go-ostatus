@@ -45,7 +45,7 @@ func (env *MagicEnv) Verify(pk crypto.PublicKey) error {
 	for _, sig := range env.Sig {
 		if err = verify(env, pk, sig.Value); err == nil {
 			return nil
-		} else if err != rsa.ErrVerification {
+		} else if err != rsa.ErrVerification && err != errInvalidPublicKeyType {
 			break
 		}
 	}
