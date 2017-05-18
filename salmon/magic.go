@@ -2,8 +2,8 @@ package salmon
 
 import (
 	"crypto"
-	"crypto/rsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"

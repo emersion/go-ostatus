@@ -5,6 +5,7 @@ package salmon
 import (
 	"crypto"
 	"crypto/rsa"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 )
@@ -12,23 +13,21 @@ import (
 // Rel is the salmon relation.
 const Rel = "salmon"
 
-// TODO: JSON schema
-
 // A MagicEnv is a magic envelope and contains a message bundled along with
 // signature(s) for that message.
 type MagicEnv struct {
-	XMLName  xml.Name    `xml:"http://salmon-protocol.org/ns/magic-env env" json:"-"`
-	Data     *MagicData  `xml:"data" json:"data"`
-	Encoding string      `xml:"encoding" json:"encoding"`
-	Alg      string      `xml:"alg" json:"alg"`
-	Sig      []*MagicSig `xml:"sig" json:"sigs"`
+	XMLName  xml.Name    `xml:"http://salmon-protocol.org/ns/magic-env env"`
+	Data     *MagicData  `xml:"data"`
+	Encoding string      `xml:"encoding"`
+	Alg      string      `xml:"alg"`
+	Sig      []*MagicSig `xml:"sig"`
 }
 
 // CreateMagicEnv creates a new magic envelope.
 func CreateMagicEnv(mediaType string, data []byte, priv crypto.PrivateKey) (*MagicEnv, error) {
 	env := &MagicEnv{
 		Data: &MagicData{
-			Type: mediaType,
+			Type:  mediaType,
 			Value: encodeToString(data),
 		},
 		Encoding: "base64url",
@@ -39,6 +38,37 @@ func CreateMagicEnv(mediaType string, data []byte, priv crypto.PrivateKey) (*Mag
 	}
 
 	return env, nil
+}
+
+type magicEnvJSON struct {
+	*MagicData
+	Encoding string      `json:"encoding"`
+	Alg      string      `json:"alg"`
+	Sig      []*MagicSig `json:"sigs"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (env *MagicEnv) UnmarshalJSON(b []byte) error {
+	var envJSON magicEnvJSON
+	if err := json.Unmarshal(b, &envJSON); err != nil {
+		return err
+	}
+
+	env.Data = envJSON.MagicData
+	env.Encoding = envJSON.Encoding
+	env.Alg = envJSON.Alg
+	env.Sig = envJSON.Sig
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler.
+func (env *MagicEnv) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&magicEnvJSON{
+		MagicData: env.Data,
+		Encoding:  env.Encoding,
+		Alg:       env.Alg,
+		Sig:       env.Sig,
+	})
 }
 
 // UnverifiedData returns this envelope's message, without checking the
@@ -72,8 +102,8 @@ func (env *MagicEnv) Verify(pub crypto.PublicKey) error {
 
 // A MagicaData contains a type and a value.
 type MagicData struct {
-	Type  string `xml:"type,attr"`
-	Value string `xml:",chardata"`
+	Type  string `xml:"type,attr" json:"data_type"`
+	Value string `xml:",chardata" json:"data"`
 }
 
 // A MagicSig is a magic signature.

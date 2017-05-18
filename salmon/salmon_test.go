@@ -1,11 +1,11 @@
 package salmon
 
 import (
-	"encoding/xml"
-	"testing"
-	"strings"
-	"math/rand"
 	"crypto/rsa"
+	"encoding/xml"
+	"math/rand"
+	"strings"
+	"testing"
 )
 
 const testReply = `<?xml version='1.0' encoding='UTF-8'?>
