@@ -45,7 +45,13 @@ func NewHandler(be Backend, hostmetaResource *xrd.Resource) *Handler {
 		}
 
 		resp.Header().Set("Content-Type", "application/atom+xml")
-		if err := feed.WriteTo(resp); err != nil {
+
+		if feed.ID == "" && len(feed.Entry) == 1 {
+			err = feed.Entry[0].WriteTo(resp)
+		} else {
+			err = feed.WriteTo(resp)
+		}
+		if err != nil {
 			http.Error(resp, err.Error(), http.StatusInternalServerError)
 			return
 		}

@@ -79,6 +79,19 @@ type Entry struct {
 	InReplyTo *InReplyTo `xml:"http://purl.org/syndication/thread/1.0 in-reply-to"`
 }
 
+type entry struct {
+	XMLName  xml.Name `xml:"http://www.w3.org/2005/Atom entry"`
+	*Entry
+}
+
+// WriteTo writes the entry to w.
+func (e *Entry) WriteTo(w io.Writer) error {
+	if _, err := io.WriteString(w, xml.Header); err != nil {
+		return err
+	}
+	return xml.NewEncoder(w).Encode(entry{Entry: e})
+}
+
 // A Link provides a relationship between an entry or a person and a URL.
 type Link struct {
 	Rel  string `xml:"rel,attr,omitempty"`
