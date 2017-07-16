@@ -3,6 +3,7 @@ package salmon
 import (
 	"bytes"
 	"encoding/xml"
+	"encoding/json"
 	"net/http"
 
 	"github.com/emersion/go-ostatus/activitystream"
@@ -29,17 +30,19 @@ func (h *handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	env := new(MagicEnv)
+	var err error
 	switch req.Header.Get("Content-Type") {
 	case "application/magic-envelope+xml", "application/xml":
-		// Nothing to do
+		err = xml.NewDecoder(req.Body).Decode(env)
+	case "application/magic-envelope+json", "application/json":
+		err = json.NewDecoder(req.Body).Decode(env)
 	default:
 		http.Error(resp, "Unsupported content type", http.StatusBadRequest)
 		return
 	}
-
-	env := new(MagicEnv)
-	if err := xml.NewDecoder(req.Body).Decode(env); err != nil {
-		http.Error(resp, err.Error(), http.StatusInternalServerError)
+	if err != nil {
+		http.Error(resp, err.Error(), http.StatusBadRequest)
 		return
 	}
 
