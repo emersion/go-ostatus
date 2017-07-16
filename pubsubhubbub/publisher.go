@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/emersion/go-ostatus/activitystream"
-
 	"log"
 )
 
@@ -22,24 +20,20 @@ import (
 // subscriber.
 var DefaultLease = 24 * time.Hour
 
-func writeEvent(w io.Writer, feed *activitystream.Feed) (mediaType string, err error) {
-	return "application/atom+xml", feed.WriteTo(w)
-}
-
 // A Backend is used to build a publisher.
 type Backend interface {
 	// Subscribe sends content notifications about a topic to notifies in a new
 	// goroutine. The notifies channel should only be closed after a call to
 	// Unsubscribe. If the subscription is not possible, it should return a
 	// DeniedError.
-	Subscribe(topic string, notifies chan<- *activitystream.Feed) error
+	Subscribe(topic string, notifies chan<- Event) error
 	// Unsubscribe closes notifies. The notifies channel must have been provided
 	// to Subscribe.
-	Unsubscribe(notifies chan<- *activitystream.Feed) error
+	Unsubscribe(notifies chan<- Event) error
 }
 
 type pubSubscription struct {
-	notifies  chan *activitystream.Feed
+	notifies  chan Event
 	callbacks map[string]*pubCallback
 	locker    sync.Mutex
 }
@@ -51,9 +45,9 @@ type pubCallback struct {
 
 func (s *pubSubscription) receive(c *http.Client) error {
 	for notif := range s.notifies {
+		mediaType := notif.MediaType()
 		var b bytes.Buffer
-		mediaType, err := writeEvent(&b, notif)
-		if err != nil {
+		if err := notif.WriteTo(&b); err != nil {
 			return err
 		}
 
@@ -125,7 +119,7 @@ func (p *Publisher) createSubscription(topicURL string) (s *pubSubscription, cre
 	s, ok := p.subscriptions[topicURL]
 	if !ok {
 		s = &pubSubscription{
-			notifies:  make(chan *activitystream.Feed),
+			notifies:  make(chan Event),
 			callbacks: make(map[string]*pubCallback),
 		}
 		p.subscriptions[topicURL] = s

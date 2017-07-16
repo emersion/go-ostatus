@@ -61,6 +61,22 @@ func (feed *Feed) WriteTo(w io.Writer) error {
 	return xml.NewEncoder(w).Encode(feed)
 }
 
+// MediaType returns this feed's media type.
+func (feed *Feed) MediaType() string {
+	return "application/atom+xml"
+}
+
+// Topic returns this feed's topic.
+func (feed *Feed) Topic() string {
+	for _, link := range feed.Link {
+		if link.Rel == "self" {
+			return link.Href
+			break
+		}
+	}
+	return ""
+}
+
 // An Entry is a feed item.
 type Entry struct {
 	ID        string  `xml:"id"`

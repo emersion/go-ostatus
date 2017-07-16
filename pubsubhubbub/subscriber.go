@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/emersion/go-ostatus/activitystream"
-
 	"log"
 )
 
@@ -36,37 +34,11 @@ func (err DeniedError) Error() string {
 	return "pubsubhubbub: subscription denied: " + string(err)
 }
 
-func readEvent(mediaType string, body io.Reader) (topic string, feed *activitystream.Feed, err error) {
-	if mediaType != "application/atom+xml" {
-		err = errors.New("pubsubhubbub: unsupported notification media type")
-		return
-	}
-
-	feed, err = activitystream.Read(body)
-	if err != nil {
-		return
-	}
-
-	// Find topic
-	for _, link := range feed.Link {
-		if link.Rel == "self" {
-			topic = link.Href
-			break
-		}
-	}
-	if topic == "" {
-		err = errors.New("pubsubhubbub: no topic found in event")
-		return
-	}
-
-	return
-}
-
 type subscription struct {
 	callbackURL  string
 	lease        time.Time
 	secret       string
-	notifies     chan<- *activitystream.Feed
+	notifies     chan<- Event
 	subscribes   chan error
 	unsubscribes chan error
 }
@@ -76,14 +48,16 @@ type Subscriber struct {
 	c             *http.Client
 	callbackURL   string
 	subscriptions map[string]*subscription
+	readEvent     ReadEventFunc
 }
 
 // NewSubscriber creates a new subscriber.
-func NewSubscriber(callbackURL string) *Subscriber {
+func NewSubscriber(callbackURL string, readEvent ReadEventFunc) *Subscriber {
 	return &Subscriber{
 		c:             new(http.Client),
 		callbackURL:   callbackURL,
 		subscriptions: make(map[string]*subscription),
+		readEvent:     readEvent,
 	}
 }
 
@@ -102,7 +76,7 @@ func (s *Subscriber) request(hub string, data url.Values) error {
 }
 
 // Subscribe subscribes to a topic on a hub. Notifications are sent to notifies.
-func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- *activitystream.Feed) error {
+func (s *Subscriber) Subscribe(hub, topic string, notifies chan<- Event) error {
 	if _, ok := s.subscriptions[topic]; ok {
 		return errors.New("pubsubhubbub: already subscribed")
 	}
@@ -222,13 +196,13 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			r = io.TeeReader(r, h)
 		}
 
-		eventTopic, notifs, err := readEvent(req.Header.Get("Content-Type"), r)
+		event, err := s.readEvent(req.Header.Get("Content-Type"), r)
 		if err != nil {
 			http.Error(resp, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		if eventTopic != topic {
+		if event.Topic() != topic {
 			http.Error(resp, "Invalid topic", http.StatusNotFound)
 			return
 		}
@@ -248,7 +222,7 @@ func (s *Subscriber) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		sub.notifies <- notifs
+		sub.notifies <- event
 	default:
 		http.Error(resp, "Unsupported method", http.StatusMethodNotAllowed)
 	}

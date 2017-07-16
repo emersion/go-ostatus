@@ -1,6 +1,7 @@
 package pubsubhubbub
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,21 +13,21 @@ import (
 )
 
 type dummyBackend struct {
-	topics map[string]chan<- *activitystream.Feed
+	topics map[string]chan<- Event
 }
 
 func newDummyBackend() *dummyBackend {
 	return &dummyBackend{
-		topics: make(map[string]chan<- *activitystream.Feed),
+		topics: make(map[string]chan<- Event),
 	}
 }
 
-func (be *dummyBackend) Subscribe(topic string, notifies chan<- *activitystream.Feed) error {
+func (be *dummyBackend) Subscribe(topic string, notifies chan<- Event) error {
 	be.topics[topic] = notifies
 	return nil
 }
 
-func (be *dummyBackend) Unsubscribe(notifies chan<- *activitystream.Feed) error {
+func (be *dummyBackend) Unsubscribe(notifies chan<- Event) error {
 	for topic, ch := range be.topics {
 		if notifies == ch {
 			delete(be.topics, topic)
@@ -69,11 +70,16 @@ func Test(t *testing.T) {
 
 	be := newDummyBackend()
 	pub := NewPublisher(be)
-	sub := NewSubscriber(subscriberURL + "/webhook")
+	sub := NewSubscriber(subscriberURL + "/webhook", func(mediaType string, body io.Reader) (Event, error) {
+		if mediaType != "application/atom+xml" {
+			return nil, errors.New("pubsubhubbub: unsupported notification media type")
+		}
+		return activitystream.Read(body)
+	})
 	pub.c.Transport = &roundTripper{sub}
 	sub.c.Transport = &roundTripper{pub}
 
-	notifies := make(chan *activitystream.Feed, 1)
+	notifies := make(chan Event, 1)
 	if err := sub.Subscribe(hubURL, topicURL, notifies); err != nil {
 		t.Fatal("Expected no error when subscribing, got:", err)
 	}
@@ -113,7 +119,7 @@ func Test(t *testing.T) {
 	be.topics[topicURL] <- sent
 
 	// Receive notification
-	received := <-notifies
+	received := (<-notifies).(*activitystream.Feed)
 
 	sent.XMLName = received.XMLName
 	if !reflect.DeepEqual(sent, received) {
