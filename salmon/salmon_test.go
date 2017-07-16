@@ -3,6 +3,7 @@ package salmon
 import (
 	"crypto/rsa"
 	"encoding/xml"
+	"encoding/json"
 	"math/rand"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ const testReply = `<?xml version='1.0' encoding='UTF-8'?>
 </entry>
 `
 
-const testSpecMagicEnvString = `<?xml version='1.0' encoding='UTF-8'?>
+const testMagicEnvXML = `<?xml version='1.0' encoding='UTF-8'?>
 <me:env xmlns:me='http://salmon-protocol.org/ns/magic-env'>
   <me:data type='application/atom+xml'>
     PD94bWwgdmVyc2lvbj0nMS4wJyBlbmNvZGluZz0nVVRGLTgnPz4KPGVudHJ5IHhtbG5zPSdod
@@ -45,6 +46,19 @@ const testSpecMagicEnvString = `<?xml version='1.0' encoding='UTF-8'?>
 </me:env>
 `
 
+const testMagicEnvJSON = `{
+  "data": "PD94bWwgdmVyc2lvbj0nMS4wJyBlbmNvZGluZz0nVVRGLTgnPz4KPGVudHJ5IHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDA1L0F0b20nPgogIDxpZD50YWc6ZXhhbXBsZS5jb20sMjAwOTpjbXQtMC40NDc3NTcxODwvaWQ-ICAKICA8YXV0aG9yPjxuYW1lPnRlc3RAZXhhbXBsZS5jb208L25hbWU-PHVyaT5ib2JAZXhhbXBsZS5jb208L3VyaT48L2F1dGhvcj4KICA8dGhyOmluLXJlcGx5LXRvIHhtbG5zOnRocj0naHR0cDovL3B1cmwub3JnL3N5bmRpY2F0aW9uL3RocmVhZC8xLjAnCiAgICAgIHJlZj0ndGFnOmJsb2dnZXIuY29tLDE5OTk6YmxvZy04OTM1OTEzNzQzMTMzMTI3MzcucG9zdC0zODYxNjYzMjU4NTM4ODU3OTU0Jz50YWc6YmxvZ2dlci5jb20sMTk5OTpibG9nLTg5MzU5MTM3NDMxMzMxMjczNy5wb3N0LTM4NjE2NjMyNTg1Mzg4NTc5NTQKICA8L3Rocjppbi1yZXBseS10bz4KICA8Y29udGVudD5TYWxtb24gc3dpbSB1cHN0cmVhbSE8L2NvbnRlbnQ-CiAgPHRpdGxlPlNhbG1vbiBzd2ltIHVwc3RyZWFtITwvdGl0bGU-CiAgPHVwZGF0ZWQ-MjAwOS0xMi0xOFQyMDowNDowM1o8L3VwZGF0ZWQ-CjwvZW50cnk-CiAgICA=",
+  "data_type": "application/atom+xml",
+  "encoding": "base64url",
+  "alg": "RSA-SHA256",
+  "sigs": [
+    {
+    "value": "EvGSD2vi8qYcveHnb-rrlok07qnCXjn8YSeCDDXlbhILSabgvNsPpbe76up8w63i2fWHvLKJzeGLKfyHg8ZomQ",
+    "key_id": "4k8ikoyC2Xh+8BiIeQ+ob7Hcd2J7/Vj3uM61dy9iRMI="
+    }
+  ]
+}`
+
 func TestMagicEnv(t *testing.T) {
 	// Generate an insecure test key - we don't care
 	priv, err := rsa.GenerateKey(rand.New(rand.NewSource(0)), 512)
@@ -65,11 +79,36 @@ func TestMagicEnv(t *testing.T) {
 	}
 }
 
-func TestMagicEnv_UnverifiedData(t *testing.T) {
-	r := strings.NewReader(testSpecMagicEnvString)
+func TestMagicEnv_xml(t *testing.T) {
+	r := strings.NewReader(testMagicEnvXML)
 
 	env := new(MagicEnv)
 	if err := xml.NewDecoder(r).Decode(env); err != nil {
+		t.Fatal("Expected no error when parsing magic envelope, got:", err)
+	}
+
+	b, err := env.UnverifiedData()
+	if err != nil {
+		t.Fatalf("UnverifiedData() = %v", err)
+	}
+
+	s := strings.Replace(string(b), "  \n", "\n", -1)
+	s = strings.Trim(s, " ")
+	if s != testReply {
+		t.Errorf("UnverifiedData() = \n%v\n, want \n%v", s, testReply)
+	}
+
+	// TODO
+	//if err := env.Verify(pub); err != nil {
+	//	t.Fatal("Verify() = ", err)
+	//}
+}
+
+func TestMagicEnv_json(t *testing.T) {
+	r := strings.NewReader(testMagicEnvJSON)
+
+	env := new(MagicEnv)
+	if err := json.NewDecoder(r).Decode(env); err != nil {
 		t.Fatal("Expected no error when parsing magic envelope, got:", err)
 	}
 
