@@ -277,6 +277,11 @@ func (p *Publisher) Subscribe(topicURL, callbackURL, secret string, lease time.D
 		}),
 	}
 	s.locker.Unlock()
+
+	if p.SubscriptionState != nil {
+		p.SubscriptionState(topicURL, callbackURL, secret, time.Now().Add(lease))
+	}
+
 	return nil
 }
 
@@ -325,7 +330,10 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	callbackURL := req.FormValue("hub.callback")
 	topicURL := req.FormValue("hub.topic")
 	secret := req.FormValue("hub.secret")
-	// TODO: hub.lease_seconds
+	lease := DefaultLease
+	if v, err := strconv.ParseInt(req.FormValue("hub.lease_seconds"), 10, 64); err == nil {
+		lease = time.Duration(v) * time.Second
+	}
 
 	if mode != "subscribe" && mode != "unsubscribe" {
 		http.Error(resp, "Invalid mode", http.StatusBadRequest)
@@ -340,7 +348,7 @@ func (p *Publisher) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		var err error
 		switch mode {
 		case "subscribe":
-			err = p.Subscribe(topicURL, callbackURL, secret, DefaultLease)
+			err = p.Subscribe(topicURL, callbackURL, secret, lease)
 		case "unsubscribe":
 			err = p.Unsubscribe(topicURL, callbackURL)
 		}
