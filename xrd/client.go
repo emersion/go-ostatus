@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"mime"
 	"net/http"
 )
 
@@ -28,14 +29,19 @@ func Get(url string) (*Resource, error) {
 		return nil, HTTPError(resp.StatusCode)
 	}
 
+	contentType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, err
+	}
+
 	resource := new(Resource)
-	switch resp.Header.Get("Content-Type") {
+	switch contentType {
 	case "application/xrd+xml", "application/xml", "text/xml":
 		err = xml.NewDecoder(resp.Body).Decode(resource)
 	case "application/jrd+json", "application/json", "":
 		err = json.NewDecoder(resp.Body).Decode(resource)
 	default:
-		err = errors.New("xrd: unsupported format")
+		err = errors.New("xrd: unsupported format: " + resp.Header.Get("Content-Type"))
 	}
 	return resource, err
 }
