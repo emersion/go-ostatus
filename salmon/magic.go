@@ -43,6 +43,10 @@ func encodeToString(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+func signatureEncodeToString(b []byte) string {
+	return base64.URLEncoding.EncodeToString(b)
+}
+
 // FormatPublicKey formats a public key into the application/magic-key format.
 func FormatPublicKey(pk crypto.PublicKey) (string, error) {
 	switch pk := pk.(type) {
@@ -116,9 +120,9 @@ func PublicKeyID(pk crypto.PublicKey) (string, error) {
 }
 
 func computeHash(env *MagicEnv) ([]byte, error) {
-	mediaType := encodeToString([]byte(env.Data.Type))
-	encoding := encodeToString([]byte(env.Encoding))
-	alg := encodeToString([]byte(env.Alg))
+	mediaType := signatureEncodeToString([]byte(env.Data.Type))
+	encoding := signatureEncodeToString([]byte(env.Encoding))
+	alg := signatureEncodeToString([]byte(env.Alg))
 
 	h := sha256.New()
 	_, err := io.WriteString(h, env.Data.Value+"."+mediaType+"."+encoding+"."+alg)
